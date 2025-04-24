@@ -68,6 +68,7 @@ async def help(ctx):
     embed.add_field(name="!start", value="(admin) Losuje drużyny i pokazuje ELO info", inline=False)
     embed.add_field(name="!wynik <1/2>", value="(admin) Rozpoczyna głosowanie MVP", inline=False)
     embed.add_field(name="!mvp", value="(admin) Zatwierdza MVP i rozdaje punkty", inline=False)
+    embed.add_field(name="!wyczysc", value="(admin) Czysci całą listę graczy", inline=False)
     embed.add_field(name="!profil [nick]", value="Pokazuje Twój profil", inline=False)
     embed.add_field(name="!ranking", value="Top 10 graczy ELO", inline=False)
     await ctx.send(embed=embed)
@@ -150,6 +151,16 @@ async def dodaj(ctx, *, user):
         await ctx.send(f'✅ Dodano {user} do zapisów.')
     else:
         await ctx.send(f'{user} już jest na liście.')
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def wyczysc(ctx):
+    global signups, waiting_list
+    signups = []
+    waiting_list = []
+    log_entry(str(ctx.author), 'Wyczyszczono listy zapisów')
+    await ctx.send("🧹 Lista zapisów i rezerwowa została całkowicie wyczyszczona.")
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
