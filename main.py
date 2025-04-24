@@ -32,7 +32,7 @@ keep_alive()
 # Discord bot setup
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
 MAX_SIGNUPS = 10
 signups = []
