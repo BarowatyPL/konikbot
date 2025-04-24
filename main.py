@@ -61,18 +61,20 @@ async def on_ready():
 @bot.command()
 async def help(ctx):
     embed = discord.Embed(title="📖 Lista dostępnych komend", color=discord.Color.blue())
-    embed.add_field(name="!zapisz", value="Zapisuje Cię na wydarzenie", inline=False)
-    embed.add_field(name="!wypisz", value="Wypisuje Cię z wydarzenia", inline=False)
-    embed.add_field(name="!lista", value="Wyświetla listę zapisanych", inline=False)
-    embed.add_field(name="!dodaj <nick>", value="(admin) Dodaje gracza ręcznie", inline=False)
-    embed.add_field(name="!usun <nick>", value="(admin) Usuwa gracza ręcznie", inline=False)
-    embed.add_field(name="!start", value="(admin) Losuje drużyny i pokazuje ELO info", inline=False)
-    embed.add_field(name="!wynik <1/2>", value="(admin) Rozpoczyna głosowanie MVP", inline=False)
-    embed.add_field(name="!mvp", value="(admin) Zatwierdza MVP i rozdaje punkty", inline=False)
-    embed.add_field(name="!profil [nick]", value="Pokazuje Twój profil", inline=False)
-    embed.add_field(name="!ranking", value="Top 10 graczy ELO", inline=False)
-    embed.add_field(name="!info", value="Opis jak działa bot – cała procedura", inline=False)
+    embed.add_field(name="📋 !zapisz", value="Zapisuje Cię na wydarzenie", inline=False)
+    embed.add_field(name="📋 !wypisz", value="Wypisuje Cię z wydarzenia", inline=False)
+    embed.add_field(name="📋 !lista", value="Wyświetla listę zapisanych", inline=False)
+    embed.add_field(name="🔧 !dodaj <nick>", value="(admin) Dodaje gracza ręcznie", inline=False)
+    embed.add_field(name="🔧 !usun <nick>", value="(admin) Usuwa gracza ręcznie", inline=False)
+    embed.add_field(name="🎲 !start", value="(admin) Losuje drużyny i pokazuje info", inline=False)
+    embed.add_field(name="🏁 !wynik <1/2>", value="(admin) Rozpoczyna głosowanie MVP", inline=False)
+    embed.add_field(name="🏅 !mvp", value="(admin) Zatwierdza MVP i rozdaje punkty", inline=False)
+    embed.add_field(name="📈 !profil [nick]", value="Pokazuje profil gracza", inline=False)
+    embed.add_field(name="🏆 !ranking", value="Wyświetla top 10 graczy", inline=False)
+    embed.add_field(name="ℹ️ !info", value="Opis całej procedury działania bota", inline=False)
+    embed.add_field(name="🗑️ !reset_ranking", value="(admin) Resetuje ranking i wszystkie statystyki graczy", inline=False)
     await ctx.send(embed=embed)
+
 
 @bot.command()
 async def info(ctx):
@@ -88,6 +90,14 @@ async def info(ctx):
     )
     embed = discord.Embed(title="ℹ️ Procedura działania bota", description=opis, color=discord.Color.green())
     await ctx.send(embed=embed)
+    
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def reset_ranking(ctx):
+    global PUNKTY_ELO
+    PUNKTY_ELO.clear()
+    zapisz_dane()
+    await ctx.send("🗑️ Ranking i statystyki wszystkich graczy zostały zresetowane.")
 
 
 @bot.command()
