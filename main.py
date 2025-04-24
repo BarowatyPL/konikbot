@@ -127,11 +127,11 @@ async def usun(ctx, *, user):
 
 @bot.command()
 async def lista(ctx):
-    list_msg = '**Zapisani:**
-' + '\n'.join(f'{i+1}. {name}' for i, name in enumerate(signups))
+    list_msg = '**Zapisani:**\\n' + '\\n'.join(f'{i+1}. {name}' for i, name in enumerate(signups))
     if waiting_list:
-        list_msg += '\n**Rezerwowi:**\n' + '\n'.join(f'- {name}' for name in waiting_list)
+        list_msg += '\\n**Rezerwowi:**\\n' + '\\n'.join(f'- {name}' for name in waiting_list)
     await ctx.send(list_msg)
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
