@@ -48,30 +48,19 @@ async def on_ready():
 @bot.command()
 async def help(ctx):
     help_text = (
-        "**Lista dostępnych komend:**
-"
-        "`!zapisz` – Zapisuje Cię na wydarzenie.
-"
-        "`!wypisz` – Wypisuje Cię z listy.
-"
-        "`!lista` – Wyświetla listę zapisanych i rezerwowych.
-"
-        "`!dodaj <nick>` – (admin) Ręczne dodanie gracza.
-"
-        "`!usun <nick>` – (admin) Ręczne usunięcie gracza.
-"
-        "`!reset` – (admin) Resetuje listy zapisów.
-"
-        "`!ustaw <hh:mm>` – (admin) Ustawia godzinę wydarzenia.
-"
-        "`!czas` – Pokazuje aktualnie ustawioną godzinę wydarzenia.
-"
-        "`!logi` – Wyświetla ostatnie logi zapisów.
-"
-        "`!ranking` – Pokazuje ranking ELO graczy.
-"
-        "`!profil [nick]` – Pokazuje Twój profil lub wybranego gracza."
-    )
+    "**Lista dostępnych komend:**\\n"
+    "`!zapisz` – Zapisuje Cię na wydarzenie.\\n"
+    "`!wypisz` – Wypisuje Cię z listy.\\n"
+    "`!lista` – Wyświetla listę zapisanych i rezerwowych.\\n"
+    "`!dodaj <nick>` – (admin) Ręczne dodanie gracza.\\n"
+    "`!usun <nick>` – (admin) Ręczne usunięcie gracza.\\n"
+    "`!reset` – (admin) Resetuje listy zapisów.\\n"
+    "`!ustaw <hh:mm>` – (admin) Ustawia godzinę wydarzenia.\\n"
+    "`!czas` – Pokazuje aktualnie ustawioną godzinę wydarzenia.\\n"
+    "`!logi` – Wyświetla ostatnie logi zapisów.\\n"
+    "`!ranking` – Pokazuje ranking ELO graczy.\\n"
+    "`!profil [nick]` – Pokazuje Twój profil lub wybranego gracza."
+)
     await ctx.send(help_text)
 
 @bot.command()
