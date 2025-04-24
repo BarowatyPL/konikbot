@@ -73,6 +73,42 @@ async def help(ctx):
     await ctx.send(embed=embed)
 
 @bot.command()
+async def info(ctx):
+    embed = discord.Embed(title="ℹ️ Jak działa system bota", color=discord.Color.gold())
+    embed.add_field(
+        name="1. Zapisy",
+        value="Użytkownicy zapisują się komendą `!zapisz`, admin może też dodać gracza ręcznie `!dodaj <nick>`.",
+        inline=False
+    )
+    embed.add_field(
+        name="2. Start gry",
+        value="Admin używa komendy `!start`, która losuje drużyny i pokazuje ELO oraz prognozowane zyski/straty.",
+        inline=False
+    )
+    embed.add_field(
+        name="3. Zgłoszenie wyniku",
+        value="Po grze admin używa `!wynik 1` lub `!wynik 2` w zależności od zwycięzcy.",
+        inline=False
+    )
+    embed.add_field(
+        name="4. Głosowanie MVP",
+        value="Po wyniku gracze mogą głosować na MVP w drużynach poprzez reakcje. Tylko uczestnicy meczu mogą głosować.",
+        inline=False
+    )
+    embed.add_field(
+        name="5. Zatwierdzenie MVP",
+        value="Admin zatwierdza MVP komendą `!mvp`. MVP dostają dodatkowe punkty lub tracą mniej.",
+        inline=False
+    )
+    embed.add_field(
+        name="6. Statystyki",
+        value="Każdy może użyć `!profil` by zobaczyć swoje ELO, zwycięstwa, przegrane i MVP. `!ranking` pokazuje top graczy.",
+        inline=False
+    )
+    await ctx.send(embed=embed)
+
+
+@bot.command()
 async def zapisz(ctx):
     user = str(ctx.author)
     if user in signups or user in waiting_list:
