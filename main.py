@@ -3,9 +3,11 @@ from discord.ext import commands, tasks
 from datetime import datetime, time
 import asyncio
 import os
+import json
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
+from elo_mvp_system import przetworz_mecz, ranking, profil, wczytaj_dane, zapisz_dane
 
 # Ładowanie tokena z .env
 load_dotenv()
@@ -38,10 +40,30 @@ waiting_list = []
 log_file = 'signup_log.txt'
 event_time = time(20, 0)  # Domyślnie 20:00
 
+wczytaj_dane()
+
 @bot.event
 async def on_ready():
     print(f'Zalogowano jako {bot.user.name}')
     check_event_time.start()
+
+@bot.command()
+async def help(ctx):
+    help_text = (
+        "**Lista dostępnych komend:**\n"
+        "`!zapisz` – Zapisuje Cię na wydarzenie.\n"
+        "`!wypisz` – Wypisuje Cię z listy.\n"
+        "`!lista` – Wyświetla listę zapisanych i rezerwowych.\n"
+        "`!dodaj <nick>` – (admin) Ręczne dodanie gracza.\n"
+        "`!usun <nick>` – (admin) Ręczne usunięcie gracza.\n"
+        "`!reset` – (admin) Resetuje listy zapisów.\n"
+        "`!ustaw <hh:mm>` – Ustawia godzinę wydarzenia.\n"
+        "`!czas` – Pokazuje aktualnie ustawioną godzinę wydarzenia.\n"
+        "`!logi` – Wyświetla ostatnie logi zapisów.\n"
+        "`!ranking` – Pokazuje ranking ELO graczy.\n"
+        "`!profil [nick]` – Pokazuje Twój profil lub wybranego gracza."
+    )
+    await ctx.send(help_text)
 
 @bot.command()
 async def zapisz(ctx):
@@ -75,6 +97,26 @@ async def wypisz(ctx):
         await ctx.send(f'{user} usunięty z listy rezerwowej.')
     else:
         await ctx.send(f'{user}, nie jesteś zapisany.')
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def dodaj(ctx, *, user):
+    if user not in signups:
+        signups.append(user)
+        log_entry(user, 'Dodany ręcznie')
+        await ctx.send(f'✅ Dodano {user} do zapisów.')
+    else:
+        await ctx.send(f'{user} już jest na liście.')
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def usun(ctx, *, user):
+    if user in signups:
+        signups.remove(user)
+        log_entry(user, 'Usunięty ręcznie')
+        await ctx.send(f'🗑️ Usunięto {user} z zapisów.')
+    else:
+        await ctx.send(f'{user} nie znajduje się na liście.')
 
 @bot.command()
 async def lista(ctx):
@@ -116,6 +158,20 @@ async def logi(ctx):
         await ctx.send(f'📝 Ostatnie logi:\n```{log_text}```')
     except FileNotFoundError:
         await ctx.send('❌ Nie znaleziono pliku logów.')
+
+@bot.command()
+async def ranking(ctx):
+    top = ranking()
+    wynik = "**Ranking ELO**\n"
+    for i, (nick, elo) in enumerate(top[:10], 1):
+        wynik += f"{i}. {nick}: {elo}\n"
+    await ctx.send(wynik)
+
+@bot.command()
+async def profil(ctx, *, nick=None):
+    nick = nick or str(ctx.author)
+    dane = profil(nick)
+    await ctx.send(f"**{nick}**\nELO: {dane['elo']}\nWygrane: {dane['wygrane']}\nPrzegrane: {dane['przegrane']}\nMVP: {dane['mvp']}")
 
 @tasks.loop(seconds=60)
 async def check_event_time():
