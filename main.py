@@ -1,193 +1,121 @@
 
 import discord
-from discord.ext import commands, tasks
-from datetime import datetime, time
-import asyncio
-import os
-import json
-from dotenv import load_dotenv
-from flask import Flask
-from threading import Thread
-from elo_mvp_system import przetworz_mecz, ranking, profil, wczytaj_dane, zapisz_dane
+from discord.ext import commands
+import random
+from elo_mvp_system import przetworz_mecz, zapisz_dane, PUNKTY_ELO, przewidywana_szansa
+from collections import Counter
 
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot działa :)"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-keep_alive()
-
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
-
-MAX_SIGNUPS = 10
-signups = []
-waiting_list = []
-log_file = 'signup_log.txt'
-event_time = time(20, 0)
-
-wczytaj_dane()
-
-@bot.event
-async def on_ready():
-    print(f'Zalogowano jako {bot.user.name}')
-    check_event_time.start()
+team1 = []
+team2 = []
+mvp_votes = {}
 
 @bot.command()
-async def help(ctx):
-    embed = discord.Embed(
-        title="📖 Lista dostępnych komend",
-        description="Oto komendy, które możesz użyć:",
-        color=discord.Color.blue()
-    )
+@commands.has_permissions(administrator=True)
+async def start(ctx):
+    if len(signups) < 10:
+        await ctx.send("❌ Potrzeba dokładnie 10 zapisanych graczy.")
+        return
 
-    embed.add_field(name="!zapisz", value="Zapisuje Cię na wydarzenie.", inline=False)
-    embed.add_field(name="!wypisz", value="Wypisuje Cię z listy.", inline=False)
-    embed.add_field(name="!lista", value="Wyświetla listę zapisanych i rezerwowych.", inline=False)
-    embed.add_field(name="!dodaj <nick>", value="(admin) Ręczne dodanie gracza.", inline=False)
-    embed.add_field(name="!usun <nick>", value="(admin) Ręczne usunięcie gracza.", inline=False)
-    embed.add_field(name="!reset", value="(admin) Resetuje listy zapisów.", inline=False)
-    embed.add_field(name="!ustaw <hh:mm>", value="(admin) Ustawia godzinę wydarzenia.", inline=False)
-    embed.add_field(name="!czas", value="Pokazuje aktualnie ustawioną godzinę wydarzenia.", inline=False)
-    embed.add_field(name="!logi", value="Wyświetla ostatnie logi zapisów.", inline=False)
-    embed.add_field(name="!ranking", value="Pokazuje ranking ELO graczy.", inline=False)
-    embed.add_field(name="!profil [nick]", value="Pokazuje Twój profil lub wybranego gracza.", inline=False)
+    random.shuffle(signups)
+    global team1, team2
+    team1 = signups[:5]
+    team2 = signups[5:10]
 
+    suma_a = sum(PUNKTY_ELO.get(g, 1000) for g in team1)
+    suma_b = sum(PUNKTY_ELO.get(g, 1000) for g in team2)
+    szansa_a = przewidywana_szansa(suma_a, suma_b)
+    szansa_b = 1 - szansa_a
+
+    gain_a = max(15, round(32 * (1 - szansa_a)))
+    loss_a = max(15, round(32 * (0 - szansa_a)))
+    gain_b = max(15, round(32 * (1 - szansa_b)))
+    loss_b = max(15, round(32 * (0 - szansa_b)))
+
+    embed = discord.Embed(title="🎮 Drużyny wylosowane!", color=discord.Color.purple())
+    embed.add_field(name="Drużyna 1", value="\n".join(
+        f"{i+1}. {g} (±{gain_a}/-{loss_a})" for i, g in enumerate(team1)
+    ), inline=True)
+    embed.add_field(name="Drużyna 2", value="\n".join(
+        f"{i+6}. {g} (±{gain_b}/-{loss_b})" for i, g in enumerate(team2)
+    ), inline=True)
     await ctx.send(embed=embed)
 
 @bot.command()
-async def zapisz(ctx):
-    user = str(ctx.author)
-    if user in signups or user in waiting_list:
-        await ctx.send(f'{user}, jesteś już zapisany.')
+@commands.has_permissions(administrator=True)
+async def wynik(ctx, zwyciezca: int):
+    if zwyciezca not in (1, 2):
+        await ctx.send("❌ Użyj `!wynik 1` lub `!wynik 2`.")
         return
-    if len(signups) < MAX_SIGNUPS:
-        signups.append(user)
-        log_entry(user, 'Zapisano')
-        await ctx.send(f'{user} został zapisany. ({len(signups)}/{MAX_SIGNUPS})')
-    else:
-        waiting_list.append(user)
-        log_entry(user, 'Lista rezerwowa')
-        await ctx.send(f'{user}, dodano do listy rezerwowej.')
+    if len(team1) != 5 or len(team2) != 5:
+        await ctx.send("❌ Najpierw użyj !start.")
+        return
 
-@bot.command()
-async def wypisz(ctx):
-    user = str(ctx.author)
-    if user in signups:
-        signups.remove(user)
-        log_entry(user, 'Wypisano')
-        if waiting_list:
-            moved_user = waiting_list.pop(0)
-            signups.append(moved_user)
-            log_entry(moved_user, 'Przeniesiono z rezerwowej')
-        await ctx.send(f'{user} został wypisany.')
-    elif user in waiting_list:
-        waiting_list.remove(user)
-        log_entry(user, 'Usunięto z rezerwowej')
-        await ctx.send(f'{user} usunięty z listy rezerwowej.')
-    else:
-        await ctx.send(f'{user}, nie jesteś zapisany.')
+    ctx.bot.zwyciezca = zwyciezca
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def dodaj(ctx, *, user):
-    if user not in signups:
-        signups.append(user)
-        log_entry(user, 'Dodany ręcznie')
-        await ctx.send(f'✅ Dodano {user} do zapisów.')
-    else:
-        await ctx.send(f'{user} już jest na liście.')
+    wygrani = team1 if zwyciezca == 1 else team2
+    przegrani = team2 if zwyciezca == 1 else team1
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def usun(ctx, *, user):
-    if user in signups:
-        signups.remove(user)
-        log_entry(user, 'Usunięty ręcznie')
-        await ctx.send(f'🗑️ Usunięto {user} z zapisów.')
-    else:
-        await ctx.send(f'{user} nie znajduje się na liście.')
+    ctx.bot.last_teams = {"A": team1, "B": team2}
 
-@bot.command()
-async def lista(ctx):
-    list_msg = '**Zapisani:**\n' + '\n'.join(f'{i+1}. {name}' for i, name in enumerate(signups))
-    if waiting_list:
-        list_msg += '\n**Rezerwowi:**\n' + '\n'.join(f'- {name}' for name in waiting_list)
-    await ctx.send(list_msg)
+    embed_win = discord.Embed(title="🏆 Głosuj na MVP (Wygrani)", color=discord.Color.green())
+    embed_lose = discord.Embed(title="😓 Głosuj na MVP (Przegrani)", color=discord.Color.red())
+
+    emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+    ctx.bot.mvp_mapping = {}
+
+    for i, g in enumerate(wygrani):
+        embed_win.add_field(name=emojis[i], value=g, inline=False)
+        ctx.bot.mvp_mapping[emojis[i]] = {"team": "A" if zwyciezca == 1 else "B", "user": g}
+
+    for i, g in enumerate(przegrani):
+        embed_lose.add_field(name=emojis[i], value=g, inline=False)
+        ctx.bot.mvp_mapping[emojis[i]] = {"team": "B" if zwyciezca == 1 else "A", "user": g}
+
+    ctx.bot.mvp_vote_messages = []
+    win_msg = await ctx.send(embed=embed_win)
+    lose_msg = await ctx.send(embed=embed_lose)
+    ctx.bot.mvp_vote_messages.extend([win_msg.id, lose_msg.id])
+
+    for i in range(5):
+        await win_msg.add_reaction(emojis[i])
+        await lose_msg.add_reaction(emojis[i])
+
+    await ctx.send("✅ Głosowanie rozpoczęte! Po zakończeniu użyj `!mvp` by zatwierdzić wynik.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def ustaw(ctx, godzina: str):
-    global event_time
-    try:
-        godz, minuty = map(int, godzina.split(':'))
-        event_time = time(godz, minuty)
-        await ctx.send(f'⏰ Ustawiono nową godzinę wydarzenia: {event_time.strftime("%H:%M")}')
-    except:
-        await ctx.send('❌ Niepoprawny format! Użyj np. `!ustaw 18:30`.')
+async def mvp(ctx):
+    await ctx.send("⏳ Zliczanie głosów na MVP...")
 
-@bot.command()
-async def czas(ctx):
-    godzina_str = event_time.strftime("%H:%M")
-    await ctx.send(f"⏰ Aktualna godzina wydarzenia: {godzina_str}")
+    mvp_counts = {"A": Counter(), "B": Counter()}
+    channel = ctx.channel
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def reset(ctx):
-    global signups, waiting_list
-    signups = []
-    waiting_list = []
-    log_entry(str(ctx.author), 'Zresetowano listy')
-    await ctx.send('🗑️ Lista zapisów i rezerwowa zostały wyczyszczone.')
+    for msg_id in ctx.bot.mvp_vote_messages:
+        try:
+            msg = await channel.fetch_message(msg_id)
+            for reaction in msg.reactions:
+                if str(reaction.emoji) in ctx.bot.mvp_mapping:
+                    async for user in reaction.users():
+                        if user == bot.user:
+                            continue
+                        mapping = ctx.bot.mvp_mapping[str(reaction.emoji)]
+                        mvp_counts[mapping["team"]][mapping["user"]] += 1
+        except Exception as e:
+            await ctx.send(f"❌ Błąd przy zliczaniu głosów: {e}")
+            return
 
-@bot.command()
-async def logi(ctx):
-    try:
-        with open(log_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()[-10:]
-            log_text = ''.join(lines) or 'Brak logów.'
-        await ctx.send(f'📝 Ostatnie logi:\n```{log_text}```')
-    except FileNotFoundError:
-        await ctx.send('❌ Nie znaleziono pliku logów.')
+    mvp_a = mvp_counts["A"].most_common(1)
+    mvp_b = mvp_counts["B"].most_common(1)
 
-@bot.command(name="ranking")
-async def show_ranking(ctx):
-    top = ranking()
-    wynik = "**Ranking ELO**\n"
-    for i, (nick, elo) in enumerate(top[:10], 1):
-        wynik += f"{i}. {nick}: {elo}\n"
-    await ctx.send(wynik)
+    mvp_a_name = mvp_a[0][0] if mvp_a else None
+    mvp_b_name = mvp_b[0][0] if mvp_b else None
 
-@bot.command(name="profil")
-async def show_profil(ctx, *, nick=None):
-    nick = nick or str(ctx.author)
-    dane = profil(nick)
-    await ctx.send(f"**{nick}**\nELO: {dane['elo']}\nWygrane: {dane['wygrane']}\nPrzegrane: {dane['przegrane']}\nMVP: {dane['mvp']}")
+    przetworz_mecz(ctx.bot.last_teams["A"], ctx.bot.last_teams["B"], "A" if ctx.bot.zwyciezca == 1 else "B", mvp_a_name, mvp_b_name)
+    zapisz_dane()
 
-@tasks.loop(seconds=60)
-async def check_event_time():
-    now = datetime.now().time()
-    if now.hour == event_time.hour and now.minute == event_time.minute:
-        channel = discord.utils.get(bot.get_all_channels(), name='ogolny')
-        if channel:
-            await channel.send('📢 Wydarzenie rozpoczyna się teraz!')
-        await asyncio.sleep(60)
-
-def log_entry(user, action):
-    with open(log_file, 'a', encoding='utf-8') as f:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        f.write(f'[{timestamp}] {action}: {user}\n')
-
-bot.run(TOKEN)
+    wynik_embed = discord.Embed(title="📊 MVP zatwierdzeni i punkty przyznane!", color=discord.Color.gold())
+    if mvp_a_name:
+        wynik_embed.add_field(name="MVP Drużyny A", value=mvp_a_name, inline=True)
+    if mvp_b_name:
+        wynik_embed.add_field(name="MVP Drużyny B", value=mvp_b_name, inline=True)
+    await ctx.send(embed=wynik_embed)
