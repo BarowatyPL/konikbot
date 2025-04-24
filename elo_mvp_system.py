@@ -1,6 +1,8 @@
+
 import json
 import random
 from datetime import datetime
+import os
 
 ELO_START = 1000
 ELO_MIN_GAIN = 15
@@ -8,43 +10,46 @@ ELO_MIN_LOSS = 15
 MVP_BONUS_WIN = 5
 MVP_BONUS_LOSS = -5
 
-# Pliki do zapisu
 PLIK_GRACZE = "gracze.json"
+PLIK_LOGI = "mecze_log.json"
 PUNKTY_ELO = {}
 LOGI_MECZY = []
 
-# Wczytywanie danych
 def wczytaj_dane():
     global PUNKTY_ELO, LOGI_MECZY
-    try:
-        with open(PLIK_GRACZE, "r") as f:
-            PUNKTY_ELO = json.load(f)
-    except FileNotFoundError:
+    if os.path.exists(PLIK_GRACZE):
+        with open(PLIK_GRACZE, "r", encoding="utf-8") as f:
+            try:
+                PUNKTY_ELO = json.load(f)
+            except json.JSONDecodeError:
+                PUNKTY_ELO = {}
+    else:
         PUNKTY_ELO = {}
+        zapisz_dane()
 
-    try:
-        with open("mecze_log.json", "r") as f:
-            LOGI_MECZY = json.load(f)
-    except FileNotFoundError:
+    if os.path.exists(PLIK_LOGI):
+        with open(PLIK_LOGI, "r", encoding="utf-8") as f:
+            try:
+                LOGI_MECZY = json.load(f)
+            except json.JSONDecodeError:
+                LOGI_MECZY = []
+    else:
         LOGI_MECZY = []
+        zapisz_dane()
 
-# Zapisywanie danych
 def zapisz_dane():
-    with open(PLIK_GRACZE, "w") as f:
-        json.dump(PUNKTY_ELO, f, indent=2)
-    with open("mecze_log.json", "w") as f:
-        json.dump(LOGI_MECZY, f, indent=2)
+    with open(PLIK_GRACZE, "w", encoding="utf-8") as f:
+        json.dump(PUNKTY_ELO, f, indent=2, ensure_ascii=False)
+    with open(PLIK_LOGI, "w", encoding="utf-8") as f:
+        json.dump(LOGI_MECZY, f, indent=2, ensure_ascii=False)
 
-# Dodanie gracza
 def dodaj_gracza(nick):
     if nick not in PUNKTY_ELO:
         PUNKTY_ELO[nick] = ELO_START
 
-# Oblicz przewidywaną szansę
 def przewidywana_szansa(elo1, elo2):
     return 1 / (1 + 10 ** ((elo2 - elo1) / 400))
 
-# Zaktualizuj ELO po meczu
 def przetworz_mecz(druzyna_a, druzyna_b, zwyciezca, mvp_a=None, mvp_b=None):
     for g in druzyna_a + druzyna_b:
         dodaj_gracza(g)
@@ -58,7 +63,6 @@ def przetworz_mecz(druzyna_a, druzyna_b, zwyciezca, mvp_a=None, mvp_b=None):
     wynik_a, wynik_b = (1, 0) if zwyciezca == "A" else (0, 1)
     zmiany = {}
 
-    # rozdziel punktów w drużynie A
     for gracz in druzyna_a:
         baza = 32 * (wynik_a - szansa_a)
         baza = max(baza, ELO_MIN_GAIN) if baza > 0 else min(baza, -ELO_MIN_LOSS)
@@ -67,7 +71,6 @@ def przetworz_mecz(druzyna_a, druzyna_b, zwyciezca, mvp_a=None, mvp_b=None):
         PUNKTY_ELO[gracz] += round(baza)
         zmiany[gracz] = round(baza)
 
-    # rozdziel punktów w drużynie B
     for gracz in druzyna_b:
         baza = 32 * (wynik_b - szansa_b)
         baza = max(baza, ELO_MIN_GAIN) if baza > 0 else min(baza, -ELO_MIN_LOSS)
@@ -88,11 +91,9 @@ def przetworz_mecz(druzyna_a, druzyna_b, zwyciezca, mvp_a=None, mvp_b=None):
     LOGI_MECZY.append(log)
     zapisz_dane()
 
-# Ranking graczy
 def ranking():
     return sorted(PUNKTY_ELO.items(), key=lambda x: x[1], reverse=True)
 
-# Profil gracza
 def profil(nick):
     dodaj_gracza(nick)
     mecze = [m for m in LOGI_MECZY if nick in m["zmiany"]]
@@ -108,5 +109,4 @@ def profil(nick):
         "mvp": mvp_count
     }
 
-# Wczytaj dane na start
 wczytaj_dane()
