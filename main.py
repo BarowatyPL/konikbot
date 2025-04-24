@@ -127,11 +127,21 @@ async def usun(ctx, *, user):
 
 @bot.command()
 async def lista(ctx):
-    list_msg = '**Zapisani:**
-' + '\n'.join(f'{i+1}. {name}' for i, name in enumerate(signups))
-    if waiting_list:
-        list_msg += '\n**Rezerwowi:**\n' + '\n'.join(f'- {name}' for name in waiting_list)
-    await ctx.send(list_msg)
+    embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.teal())
+
+    if signups:
+        zapisani_text = "\n".join(f"{i+1}. {name}" for i, name in enumerate(signups[:10]))
+        embed.add_field(name="✅ Gracze zapisani (do 10)", value=zapisani_text, inline=False)
+    else:
+        embed.add_field(name="✅ Gracze zapisani (do 10)", value="Brak zapisanych graczy", inline=False)
+
+    if waiting_list or len(signups) > 10:
+        rezerwowi = signups[10:] + waiting_list
+        rezerwowi_text = "\n".join(f"- {name}" for name in rezerwowi)
+        embed.add_field(name="🕒 Lista rezerwowa", value=rezerwowi_text or "Brak", inline=False)
+
+    await ctx.send(embed=embed)
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
