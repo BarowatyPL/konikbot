@@ -57,6 +57,7 @@ async def on_ready():
     print(f'Zalogowano jako {bot.user.name}')
     check_event_time.start()
 
+
 @bot.command()
 async def help(ctx):
     embed = discord.Embed(title="📖 Lista dostępnych komend", color=discord.Color.blue())
@@ -70,7 +71,24 @@ async def help(ctx):
     embed.add_field(name="!mvp", value="(admin) Zatwierdza MVP i rozdaje punkty", inline=False)
     embed.add_field(name="!profil [nick]", value="Pokazuje Twój profil", inline=False)
     embed.add_field(name="!ranking", value="Top 10 graczy ELO", inline=False)
+    embed.add_field(name="!info", value="Opis jak działa bot – cała procedura", inline=False)
     await ctx.send(embed=embed)
+
+@bot.command()
+async def info(ctx):
+    opis = (
+        "**🧩 Jak działa bot:**\n"
+        "1. Gracze zapisują się komendą `!zapisz` lub są dodawani przez admina.\n"
+        "2. Po zebraniu 10 osób admin używa `!start` – losowane są drużyny.\n"
+        "3. Po meczu admin wpisuje `!wynik 1` lub `!wynik 2`, rozpoczyna się głosowanie MVP.\n"
+        "4. Gracze głosują na MVP swojej drużyny klikając reakcje pod wiadomością.\n"
+        "5. Admin zatwierdza wynik komendą `!mvp` – gracze dostają ELO, MVP bonusy.\n"
+        "\nKażdy gracz ma swój profil: ilość punktów ELO, wygranych, przegranych i MVP.\n"
+        "Można je sprawdzić komendą `!profil`."
+    )
+    embed = discord.Embed(title="ℹ️ Procedura działania bota", description=opis, color=discord.Color.green())
+    await ctx.send(embed=embed)
+
 
 @bot.command()
 async def zapisz(ctx):
