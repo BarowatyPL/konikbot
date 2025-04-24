@@ -47,21 +47,25 @@ async def on_ready():
 
 @bot.command()
 async def help(ctx):
-    help_text = (
-    "**Lista dostępnych komend:**\\n"
-    "`!zapisz` – Zapisuje Cię na wydarzenie.\\n"
-    "`!wypisz` – Wypisuje Cię z listy.\\n"
-    "`!lista` – Wyświetla listę zapisanych i rezerwowych.\\n"
-    "`!dodaj <nick>` – (admin) Ręczne dodanie gracza.\\n"
-    "`!usun <nick>` – (admin) Ręczne usunięcie gracza.\\n"
-    "`!reset` – (admin) Resetuje listy zapisów.\\n"
-    "`!ustaw <hh:mm>` – (admin) Ustawia godzinę wydarzenia.\\n"
-    "`!czas` – Pokazuje aktualnie ustawioną godzinę wydarzenia.\\n"
-    "`!logi` – Wyświetla ostatnie logi zapisów.\\n"
-    "`!ranking` – Pokazuje ranking ELO graczy.\\n"
-    "`!profil [nick]` – Pokazuje Twój profil lub wybranego gracza."
-)
-    await ctx.send(help_text)
+    embed = discord.Embed(
+        title="📖 Lista dostępnych komend",
+        description="Oto komendy, które możesz użyć:",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(name="!zapisz", value="Zapisuje Cię na wydarzenie.", inline=False)
+    embed.add_field(name="!wypisz", value="Wypisuje Cię z listy.", inline=False)
+    embed.add_field(name="!lista", value="Wyświetla listę zapisanych i rezerwowych.", inline=False)
+    embed.add_field(name="!dodaj <nick>", value="(admin) Ręczne dodanie gracza.", inline=False)
+    embed.add_field(name="!usun <nick>", value="(admin) Ręczne usunięcie gracza.", inline=False)
+    embed.add_field(name="!reset", value="(admin) Resetuje listy zapisów.", inline=False)
+    embed.add_field(name="!ustaw <hh:mm>", value="(admin) Ustawia godzinę wydarzenia.", inline=False)
+    embed.add_field(name="!czas", value="Pokazuje aktualnie ustawioną godzinę wydarzenia.", inline=False)
+    embed.add_field(name="!logi", value="Wyświetla ostatnie logi zapisów.", inline=False)
+    embed.add_field(name="!ranking", value="Pokazuje ranking ELO graczy.", inline=False)
+    embed.add_field(name="!profil [nick]", value="Pokazuje Twój profil lub wybranego gracza.", inline=False)
+
+    await ctx.send(embed=embed)
 
 @bot.command()
 async def zapisz(ctx):
