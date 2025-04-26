@@ -111,7 +111,7 @@ async def info(ctx):
 
 @bot.command()
 async def zapisz(ctx):
-    user = str(ctx.author)
+    user = ctx.author.display_name  # używamy nicku z serwera
     if user in signups or user in waiting_list:
         await ctx.send(f'{user}, jesteś już zapisany.')
         return
@@ -124,17 +124,21 @@ async def zapisz(ctx):
         log_entry(user, 'Lista rezerwowa')
         await ctx.send(f'{user}, dodano do listy rezerwowej.')
 
+
 @bot.command()
 async def wypisz(ctx):
-    user = str(ctx.author)
+    user = ctx.author.display_name
     if user in signups:
         signups.remove(user)
         log_entry(user, 'Wypisano')
+
         if waiting_list:
             moved_user = waiting_list.pop(0)
             signups.append(moved_user)
             log_entry(moved_user, 'Przeniesiono z rezerwowej')
-        await ctx.send(f'{user} został wypisany.')
+            await ctx.send(f'{user} został wypisany.\n🔁 {moved_user} został przeniesiony z listy rezerwowej na główną.')
+        else:
+            await ctx.send(f'{user} został wypisany.')
     elif user in waiting_list:
         waiting_list.remove(user)
         log_entry(user, 'Usunięto z rezerwowej')
@@ -142,15 +146,21 @@ async def wypisz(ctx):
     else:
         await ctx.send(f'{user}, nie jesteś zapisany.')
 
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def dodaj(ctx, *, user):
-    if user not in signups:
+    if user in signups or user in waiting_list:
+        await ctx.send(f'{user} już jest zapisany.')
+    elif len(signups) < MAX_SIGNUPS:
         signups.append(user)
         log_entry(user, 'Dodany ręcznie')
         await ctx.send(f'✅ Dodano {user} do zapisów.')
     else:
-        await ctx.send(f'{user} już jest na liście.')
+        waiting_list.append(user)
+        log_entry(user, 'Dodany do rezerwowej ręcznie')
+        await ctx.send(f'ℹ️ {user} dodano do listy rezerwowej.')
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -176,18 +186,31 @@ async def usun(ctx, *, user):
 async def lista(ctx):
     embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.teal())
 
-    if signups:
-        zapisani_text = "\n".join(f"{i+1}. {name}" for i, name in enumerate(signups[:10]))
-        embed.add_field(name="✅ Gracze zapisani (do 10)", value=zapisani_text, inline=False)
-    else:
-        embed.add_field(name="✅ Gracze zapisani (do 10)", value="Brak zapisanych graczy", inline=False)
+    zapisani_display = signups[:MAX_SIGNUPS]
+    rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
 
-    if waiting_list or len(signups) > 10:
-        rezerwowi = signups[10:] + waiting_list
-        rezerwowi_text = "\n".join(f"- {name}" for name in rezerwowi)
-        embed.add_field(name="🕒 Lista rezerwowa", value=rezerwowi_text or "Brak", inline=False)
+    if zapisani_display:
+        embed.add_field(
+            name="✅ Gracze zapisani (do 10)",
+            value="\n".join(f"{i+1}. {name}" for i, name in enumerate(zapisani_display)),
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="✅ Gracze zapisani (do 10)",
+            value="Brak zapisanych graczy",
+            inline=False
+        )
+
+    if rezerwowi_display:
+        embed.add_field(
+            name="🕒 Lista rezerwowa",
+            value="\n".join(f"- {name}" for name in rezerwowi_display),
+            inline=False
+        )
 
     await ctx.send(embed=embed)
+
 
 
 @bot.command()
