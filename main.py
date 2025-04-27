@@ -272,8 +272,9 @@ async def lista(ctx):
     view = ListaView(zapisani_display) if ctx.author.guild_permissions.administrator else None
     await ctx.send(embed=embed, view=view)
 
-@bot.command()
-async def gra(ctx):
+@bot.command(name="panel")
+async def show_panel(ctx):
+
     view = PanelView(ctx)
     embed = generuj_embed_panel()
     await ctx.send(embed=embed, view=view)
