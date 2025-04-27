@@ -149,38 +149,31 @@ async def czas(ctx, godzina: str = None):
 
 @bot.command()
 async def ping(ctx):
+    print("[DEBUG] signup_ids:", signup_ids)
     if not signup_ids:
         await ctx.send("Brak zapisanych graczy.")
         return
-
-    mentions = []
-    for member in ctx.guild.members:
-        if member.id in signup_ids:
-            mentions.append(member.mention)
-
+    mentions = [member.mention for member in ctx.guild.members if member.id in signup_ids]
+    print("[DEBUG] ctx.guild.members:", [m.display_name for m in ctx.guild.members])
     if mentions:
         await ctx.send("📢 Wołam graczy z listy:\n" + " ".join(mentions))
     else:
         await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy.")
 
 
-
-
-
 @bot.command()
 async def zapisz(ctx):
     user = ctx.author.display_name
     user_id = ctx.author.id
-
     if user in signups or user in waiting_list:
         await ctx.send(f'{user}, jesteś już zapisany.')
         return
-
     if len(signups) < MAX_SIGNUPS:
         signups.append(user)
         if user_id not in signup_ids:
             signup_ids.append(user_id)
         log_entry(user, 'Zapisano')
+        print("[DEBUG] signup_ids:", signup_ids)
         await ctx.send(f'{user} został zapisany. ({len(signups)}/{MAX_SIGNUPS})')
     else:
         waiting_list.append(user)
@@ -193,12 +186,9 @@ async def zapisz(ctx):
 @bot.command()
 async def wypisz(ctx):
     user = ctx.author.display_name
-    global signup_ids
-
     if user in signups:
         signups.remove(user)
         log_entry(user, 'Wypisano')
-
         aktualizuj_listy()
         await ctx.send(f'{user} został wypisany.')
     elif user in waiting_list:
@@ -214,8 +204,6 @@ async def wypisz(ctx):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def dodaj(ctx, *, user):
-    global signup_ids
-
     if user in signups or user in waiting_list:
         await ctx.send(f'{user} już jest zapisany.')
     else:
@@ -253,7 +241,6 @@ async def usun(ctx, *, user):
         await ctx.send(f'🗑️ Usunięto {user} z listy rezerwowej.')
     else:
         await ctx.send(f'{user} nie znajduje się na liście.')
-
 
 @bot.command()
 async def lista(ctx):
@@ -398,20 +385,17 @@ async def check_event_time():
     global event_time
     if not event_time:
         return
-
     now = datetime.now()
     event_today = datetime.combine(now.date(), event_time)
     delta = (event_today - now).total_seconds()
-
+    print("[DEBUG] delta:", delta)
     channel = bot.get_channel(1216013668773265458)
     if not channel:
         return
-
     if 870 < delta <= 930:
         mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
         if mentions:
             await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
-
     elif 0 < delta <= 60:
         await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
 
@@ -433,6 +417,7 @@ def aktualizuj_listy():
         for member in bot.get_all_members():
             if not member.bot and member.display_name.lower().strip() == nick.lower().strip():
                 signup_ids.append(member.id)
+                print(f"[DEBUG] przypisuję {nick} -> {member.id} ({member.display_name})")
                 break
 
 
