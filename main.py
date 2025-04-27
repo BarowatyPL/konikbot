@@ -326,9 +326,14 @@ class UsunButton(discord.ui.Button):
         if self.nick in signups:
             signups.remove(self.nick)
             aktualizuj_listy()
-            await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=True)
+            log_entry(self.nick, "Usunięty przez przycisk admina")
+            ctx = await bot.get_context(interaction.message)
+            ctx.author = interaction.user
+            await interaction.message.delete()
+            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
         else:
             await interaction.response.send_message(f"{self.nick} już nie ma na liście.", ephemeral=True)
+
 
 
 class ZapiszButton(discord.ui.Button):
@@ -463,8 +468,9 @@ class PanelView(discord.ui.View):
 
 
 class ZmienGodzineButton(discord.ui.Button):
-    def __init__(self):
+    def __init__(self, ctx):
         super().__init__(label="⏰ Zmień godzinę", style=discord.ButtonStyle.blurple)
+        self.ctx = ctx
 
     async def callback(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.administrator:
@@ -484,10 +490,15 @@ class ZmienGodzineButton(discord.ui.Button):
             event_time = time(hour=godz, minute=minuty)
             await interaction.followup.send(f"Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", ephemeral=True)
 
-            # Odśwież embed
-            await interaction.message.edit(embed=generuj_embed_panel(), view=PanelView(interaction))
+            aktualizuj_listy()
+            ctx = await bot.get_context(interaction.message)
+            ctx.author = interaction.user
+            await interaction.message.delete()
+            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+
         except Exception:
             await interaction.followup.send("❌ Nie udało się ustawić godziny. Upewnij się, że podałeś poprawny format (HH:MM).", ephemeral=True)
+
 
 
 
