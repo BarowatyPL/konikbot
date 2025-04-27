@@ -273,7 +273,7 @@ async def lista(ctx):
     await ctx.send(embed=embed, view=view)
 
 @bot.command()
-async def panel(ctx):
+async def gra(ctx):
     view = PanelView(ctx)
     embed = generuj_embed_panel()
     await ctx.send(embed=embed, view=view)
