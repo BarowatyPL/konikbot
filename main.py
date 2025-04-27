@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, time
@@ -81,6 +80,9 @@ async def check_event_time():
             else:
                 await channel.send("Nie udało się pingować graczy — brak dopasowanych nicków.")
         await asyncio.sleep(61)  # unika ponownego wysłania
+
+
+###################### KOMENDY ############################
 
 
 @bot.command()
@@ -182,9 +184,6 @@ async def zapisz(ctx):
         log_entry(user, 'Lista rezerwowa')
         await ctx.send(f'{user}, dodano do listy rezerwowej.')
 
-
-
-
 @bot.command()
 async def wypisz(ctx):
     user = ctx.author.display_name
@@ -213,7 +212,6 @@ async def dodaj(ctx, *, user):
         log_entry(user, 'Dodany ręcznie')
         aktualizuj_listy()
         await ctx.send(f'✅ Dodano {user} do zapisów.')
-
 
 
 @bot.command()
@@ -276,8 +274,7 @@ async def lista(ctx):
 
     await ctx.send(embed=embed)
 
-
-
+########## KOMENDY DO SYSTEMY RANKINGOWEGO (JESZCZE NIE DZIAŁA) ##############################
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -381,6 +378,12 @@ async def profil(ctx, *, nick=None):
     nick = nick or str(ctx.author)
     dane = profil(nick)
     await ctx.send(f"**{nick}**\nELO: {dane['elo']}\nWygrane: {dane['wygrane']}\nPrzegrane: {dane['przegrane']}\nMVP: {dane['mvp']}")
+
+
+
+
+####################### FUNKCJE POMOCNICZE ##################################
+
 
 @tasks.loop(seconds=60)
 async def check_event_time():
