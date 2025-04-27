@@ -82,6 +82,8 @@ async def check_event_time():
         await asyncio.sleep(61)  # unika ponownego wysłania
 
 
+
+
 ###################### KOMENDY ############################
 
 
@@ -274,9 +276,11 @@ async def lista(ctx):
 
 @bot.command()
 async def panel(ctx):
+    print("[DEBUG] Wywołano !panel")
     view = PanelView(ctx)
     embed = generuj_embed_panel()
     await ctx.send(embed=embed, view=view)
+
 
 
 def generuj_embed_panel():
@@ -535,6 +539,44 @@ class UsunButton(discord.ui.Button):
             await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=True)
         else:
             await interaction.response.send_message(f"{self.nick} już nie ma na liście.", ephemeral=True)
+
+
+class ZapiszButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Kliknięto Zapisz się", ephemeral=True)
+
+class WypiszButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="❌ Wypisz się", style=discord.ButtonStyle.danger)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Kliknięto Wypisz się", ephemeral=True)
+
+class RezerwowyButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="🕒 Do rezerwowej", style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Dodano do rezerwowej", ephemeral=True)
+
+class PrzeniesDoRezerwowejButton(discord.ui.Button):
+    def __init__(self, nick):
+        super().__init__(label=f"🔽 {nick}", style=discord.ButtonStyle.secondary)
+        self.nick = nick
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Przeniesiono {self.nick} do rezerwowej", ephemeral=True)
+
+class PrzeniesDoGlownejButton(discord.ui.Button):
+    def __init__(self, nick):
+        super().__init__(label=f"🔼 {nick}", style=discord.ButtonStyle.primary)
+        self.nick = nick
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Przeniesiono {self.nick} do głównej", ephemeral=True)
 
 
 
