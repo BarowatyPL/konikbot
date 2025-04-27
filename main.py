@@ -397,7 +397,7 @@ async def check_event_time():
     channel = bot.get_channel(1216013668773265458)
     if not channel:
         return
-    if 870 < delta <= 930:
+    if 8000 < delta <= 9000:
         mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
         if mentions:
             await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
