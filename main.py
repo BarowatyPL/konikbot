@@ -41,7 +41,7 @@ MAX_SIGNUPS = 10
 signups = []
 waiting_list = []
 log_file = 'signup_log.txt'
-event_time = time(20, 0)
+event_time = None
 team1 = []
 team2 = []
 mvp_votes = {}
@@ -56,6 +56,29 @@ wczytaj_dane()
 async def on_ready():
     print(f'Zalogowano jako {bot.user.name}')
     check_event_time.start()
+
+@tasks.loop(seconds=60)
+async def check_event_time():
+    if not event_time:
+        return  # jeśli czas nieustawiony, nic nie rób
+
+    now = datetime.now()
+    event_datetime = datetime.combine(now.date(), event_time)
+    delta = (event_datetime - now).total_seconds()
+
+    if 0 < delta <= 900:  # 15 minut (900 sek)
+        channel = bot.get_channel(1216013668773265458)
+        if channel:
+            mentions = []
+            for member in channel.guild.members:
+                if member.display_name in signups:
+                    mentions.append(member.mention)
+            if mentions:
+                await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
+            else:
+                await channel.send("Nie udało się pingować graczy — brak dopasowanych nicków.")
+        await asyncio.sleep(61)  # unika ponownego wysłania
+
 
 @bot.command()
 async def help(ctx):
@@ -107,6 +130,36 @@ async def info(ctx):
         inline=False
     )
     await ctx.send(embed=embed)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def czas(ctx, godzina: str = None):
+    global event_time
+    if not godzina:
+        await ctx.send("📌 Podaj godzinę w formacie HH:MM, np. `!czas 19:45`.")
+        return
+    try:
+        godz, minuty = map(int, godzina.split(":"))
+        event_time = time(hour=godz, minute=minuty)
+        await ctx.send(f"⏰ Ustawiono czas rozpoczęcia na **{event_time.strftime('%H:%M')}**.")
+    except:
+        await ctx.send("❌ Nieprawidłowy format godziny. Użyj formatu HH:MM.")
+
+
+@bot.command()
+async def ping(ctx):
+    if not signups:
+        await ctx.send("Brak zapisanych graczy.")
+        return
+    mentions = []
+    for member in ctx.guild.members:
+        if member.display_name in signups:
+            mentions.append(member.mention)
+    if mentions:
+        await ctx.send("📢 Wołam graczy z listy:\n" + " ".join(mentions))
+    else:
+        await ctx.send("Nie udało się znaleźć żadnych graczy z listy w serwerze.")
+
 
 
 @bot.command()
@@ -187,6 +240,9 @@ async def lista(ctx):
     zapisani_display = signups[:MAX_SIGNUPS]
     rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
 
+    czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
+    embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
+
     if zapisani_display:
         embed.add_field(
             name="✅ Gracze zapisani (do 10)",
@@ -208,6 +264,7 @@ async def lista(ctx):
         )
 
     await ctx.send(embed=embed)
+
 
 
 
