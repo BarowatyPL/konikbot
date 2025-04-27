@@ -151,14 +151,18 @@ async def ping(ctx):
     if not signups:
         await ctx.send("Brak zapisanych graczy.")
         return
+
     mentions = []
     for member in ctx.guild.members:
-        if member.display_name in signups:
+        if not member.bot and member.display_name in signups:
             mentions.append(member.mention)
+
     if mentions:
         await ctx.send("📢 Wołam graczy z listy:\n" + " ".join(mentions))
     else:
-        await ctx.send("Nie udało się znaleźć żadnych graczy z listy w serwerze.")
+        await ctx.send("⚠️ Nie znaleziono graczy z listy wśród członków serwera.")
+
+
 
 
 
@@ -373,12 +377,30 @@ async def profil(ctx, *, nick=None):
 
 @tasks.loop(seconds=60)
 async def check_event_time():
-    now = datetime.now().time()
-    if now.hour == event_time.hour and now.minute == event_time.minute:
-        channel = discord.utils.get(bot.get_all_channels(), name='ogolny')
-        if channel:
-            await channel.send('📢 Wydarzenie rozpoczyna się teraz!')
-        await asyncio.sleep(60)
+    global event_time
+
+    if not event_time:
+        return
+
+    now = datetime.now()
+    event_today = datetime.combine(now.date(), event_time)
+    delta = (event_today - now).total_seconds()
+
+    channel = bot.get_channel(1216013668773265458)
+    if not channel:
+        return
+
+    if 870 < delta <= 930:  # ~15 minut wcześniej
+        mentions = []
+        for member in channel.guild.members:
+            if not member.bot and member.display_name in signups:
+                mentions.append(member.mention)
+        if mentions:
+            await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
+
+    elif 0 < delta <= 60:  # dokładnie o ustalonej godzinie
+        await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
+
 
 def log_entry(user, action):
     with open(log_file, 'a', encoding='utf-8') as f:
