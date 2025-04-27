@@ -274,10 +274,10 @@ async def lista(ctx):
 
 @bot.command(name="panel")
 async def show_panel(ctx):
-
     view = PanelView(ctx)
     embed = generuj_embed_panel()
     await ctx.send(embed=embed, view=view)
+
 
 def generuj_embed_panel():
     embed = discord.Embed(title="📋 Lista graczy (Panel)", color=discord.Color.green())
@@ -305,6 +305,7 @@ def generuj_embed_panel():
 
     return embed
 
+
 class PanelView(discord.ui.View):
     def __init__(self, ctx):
         super().__init__(timeout=None)
@@ -320,6 +321,7 @@ class PanelView(discord.ui.View):
                     self.add_item(PrzeniesDoRezerwowejButton(nick))
                 elif nick in waiting_list:
                     self.add_item(PrzeniesDoGlownejButton(nick))
+
 
 class ZmienGodzineButton(discord.ui.Button):
     def __init__(self):
@@ -343,9 +345,11 @@ class ZmienGodzineButton(discord.ui.Button):
             event_time = time(hour=godz, minute=minuty)
             await interaction.followup.send(f"Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", ephemeral=True)
 
+            # Odśwież embed
             await interaction.message.edit(embed=generuj_embed_panel(), view=PanelView(interaction))
-        except Exception as e:
+        except Exception:
             await interaction.followup.send("❌ Nie udało się ustawić godziny. Upewnij się, że podałeś poprawny format (HH:MM).", ephemeral=True)
+
 
 
 
