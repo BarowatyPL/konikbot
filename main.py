@@ -251,9 +251,9 @@ async def usun(ctx, *, user):
 
 @bot.command()
 async def lista(ctx):
-    view = PanelView(ctx) if ctx.author.guild_permissions.administrator else None
     embed = generuj_embed_panel()
-    await ctx.send(embed=embed, view=view)
+    await ctx.send(embed=embed)
+
 
     zapisani_display = signups[:MAX_SIGNUPS]
     rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
