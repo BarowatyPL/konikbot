@@ -61,32 +61,36 @@ async def on_ready():
 
 @tasks.loop(seconds=60)
 async def check_event_time():
+    global event_time
     if not event_time:
-        return  # jeśli czas nieustawiony, nic nie rób
+        print("[DEBUG] Brak ustawionego event_time.")
+        return
 
     now = datetime.now()
-    event_datetime = datetime.combine(now.date(), event_time)
-    delta = (event_datetime - now).total_seconds()
+    event_today = datetime.combine(now.date(), event_time)
+    delta = (event_today - now).total_seconds()
+    print("[DEBUG] delta:", delta)
 
-    if 0 < delta <= 900:  # 15 minut (900 sek)
-        channel = bot.get_channel(1216013668773265458)
-        if channel:
-            mentions = []
-            for member in channel.guild.members:
-                if member.display_name in signups:
-                    mentions.append(member.mention)
-            if mentions:
-                await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
-            else:
-                await channel.send("Nie udało się pingować graczy — brak dopasowanych nicków.")
-        await asyncio.sleep(61)  # unika ponownego wysłania
+    channel = bot.get_channel(1216013668773265458)
+    if not channel:
+        print("[DEBUG] Nie znaleziono kanału przypomnienia.")
+        return
+
+    if 0 < delta <= 900:
+        mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
+        if mentions:
+            await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
+        else:
+            await channel.send("⚠️ Nie udało się pingować graczy.")
+    elif -60 <= delta <= 0:
+        await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
 
 
 
 
 ###################### KOMENDY ############################
 
-
+#poprawić
 @bot.command()
 async def help(ctx):
     embed = discord.Embed(title="📖 Lista dostępnych komend", color=discord.Color.blue())
@@ -102,7 +106,7 @@ async def help(ctx):
     embed.add_field(name="!profil [nick]", value="Pokazuje Twój profil", inline=False)
     embed.add_field(name="!ranking", value="Top 10 graczy ELO", inline=False)
     await ctx.send(embed=embed)
-
+#poprawić
 @bot.command()
 async def info(ctx):
     embed = discord.Embed(title="ℹ️ Jak działa system bota", color=discord.Color.gold())
@@ -467,34 +471,6 @@ async def profil(ctx, *, nick=None):
 
 ####################### FUNKCJE POMOCNICZE ##################################
 
-
-@tasks.loop(seconds=60)
-async def check_event_time():
-    global event_time
-    if not event_time:
-        print("[DEBUG] Brak ustawionego event_time.")
-        return
-
-    now = datetime.now()
-    event_today = datetime.combine(now.date(), event_time)
-    delta = (event_today - now).total_seconds()
-    print("[DEBUG] delta:", delta)
-
-    channel = bot.get_channel(1216013668773265458)
-    if not channel:
-        print("[DEBUG] Nie znaleziono kanału przypomnienia.")
-        return
-
-    if 0 < delta <= 900:
-        mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
-        if mentions:
-            await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
-        else:
-            await channel.send("⚠️ Nie udało się pingować graczy.")
-    elif -60 <= delta <= 0:
-        await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
-
-
 def log_entry(user, action):
     with open(log_file, 'a', encoding='utf-8') as f:
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -558,7 +534,9 @@ class ZapiszButton(discord.ui.Button):
             log_entry(nick, "Dodano do rezerwowej przez przycisk")
 
         aktualizuj_listy()
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+        ctx = await bot.get_context(interaction.message)
+        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+
 
 
 class WypiszButton(discord.ui.Button):
@@ -579,7 +557,8 @@ class WypiszButton(discord.ui.Button):
         if removed:
             log_entry(nick, "Wypisano przez przycisk")
             aktualizuj_listy()
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+            ctx = await bot.get_context(interaction.message)
+            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
         else:
             await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True)
 
@@ -597,7 +576,9 @@ class RezerwowyButton(discord.ui.Button):
         waiting_list.append(nick)
         log_entry(nick, "Dodano do rezerwowej przez przycisk")
         aktualizuj_listy()
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+        ctx = await bot.get_context(interaction.message)
+        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+
 
 
 class PrzeniesDoRezerwowejButton(discord.ui.Button):
@@ -611,9 +592,11 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
             waiting_list.append(self.nick)
             aktualizuj_listy()
             log_entry(self.nick, "Przeniesiono do rezerwowej")
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+            ctx = await bot.get_context(interaction.message)
+            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
         else:
             await interaction.response.send_message("Gracz nie jest w głównej liście.", ephemeral=True)
+
 
 
 class PrzeniesDoGlownejButton(discord.ui.Button):
@@ -627,12 +610,11 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
             signups.append(self.nick)
             aktualizuj_listy()
             log_entry(self.nick, "Przeniesiono do głównej")
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+            ctx = await bot.get_context(interaction.message)
+            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
         else:
             await interaction.response.send_message("Nie można przenieść (lista pełna lub gracz nie jest w rezerwowej).", ephemeral=True)
 
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Przeniesiono {self.nick} do głównej", ephemeral=True)
 
 
 
