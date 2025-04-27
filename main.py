@@ -131,17 +131,12 @@ async def wypisz(ctx):
     if user in signups:
         signups.remove(user)
         log_entry(user, 'Wypisano')
-
-        if waiting_list:
-            moved_user = waiting_list.pop(0)
-            signups.append(moved_user)
-            log_entry(moved_user, 'Przeniesiono z rezerwowej')
-            await ctx.send(f'{user} został wypisany.\n🔁 {moved_user} został przeniesiony z listy rezerwowej na główną.')
-        else:
-            await ctx.send(f'{user} został wypisany.')
+        aktualizuj_listy()
+        await ctx.send(f'{user} został wypisany.')
     elif user in waiting_list:
         waiting_list.remove(user)
         log_entry(user, 'Usunięto z rezerwowej')
+        aktualizuj_listy()
         await ctx.send(f'{user} usunięty z listy rezerwowej.')
     else:
         await ctx.send(f'{user}, nie jesteś zapisany.')
@@ -152,14 +147,11 @@ async def wypisz(ctx):
 async def dodaj(ctx, *, user):
     if user in signups or user in waiting_list:
         await ctx.send(f'{user} już jest zapisany.')
-    elif len(signups) < MAX_SIGNUPS:
-        signups.append(user)
-        log_entry(user, 'Dodany ręcznie')
-        await ctx.send(f'✅ Dodano {user} do zapisów.')
     else:
         waiting_list.append(user)
-        log_entry(user, 'Dodany do rezerwowej ręcznie')
-        await ctx.send(f'ℹ️ {user} dodano do listy rezerwowej.')
+        log_entry(user, 'Dodany ręcznie')
+        aktualizuj_listy()
+        await ctx.send(f'✅ Dodano {user} do zapisów.')
 
 
 @bot.command()
@@ -178,7 +170,13 @@ async def usun(ctx, *, user):
     if user in signups:
         signups.remove(user)
         log_entry(user, 'Usunięty ręcznie')
+        aktualizuj_listy()
         await ctx.send(f'🗑️ Usunięto {user} z zapisów.')
+    elif user in waiting_list:
+        waiting_list.remove(user)
+        log_entry(user, 'Usunięty z rezerwowej ręcznie')
+        aktualizuj_listy()
+        await ctx.send(f'🗑️ Usunięto {user} z listy rezerwowej.')
     else:
         await ctx.send(f'{user} nie znajduje się na liście.')
 
@@ -329,5 +327,11 @@ def log_entry(user, action):
     with open(log_file, 'a', encoding='utf-8') as f:
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         f.write(f'[{timestamp}] {action}: {user}\n')
+
+def aktualizuj_listy():
+    global signups, waiting_list
+    combined = signups + waiting_list
+    signups = combined[:MAX_SIGNUPS]
+    waiting_list = combined[MAX_SIGNUPS:]
 
 bot.run(TOKEN)
