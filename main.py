@@ -153,15 +153,22 @@ async def ping(ctx):
         return
 
     mentions = []
-    for member in ctx.guild.members:
-        if not member.bot and member.display_name in signups:
-            mentions.append(member.mention)
+    for zapisany in signups:
+        matched = False
+        for member in ctx.guild.members:
+            if member.bot:
+                continue
+            if zapisany.lower().strip() == member.display_name.lower().strip():
+                mentions.append(member.mention)
+                matched = True
+                break
+        if not matched:
+            print(f"[PING] Nie znaleziono użytkownika o nicku: {zapisany}")
 
     if mentions:
         await ctx.send("📢 Wołam graczy z listy:\n" + " ".join(mentions))
     else:
-        await ctx.send("⚠️ Nie znaleziono graczy z listy wśród członków serwera.")
-
+        await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy. Sprawdź, czy nicki się zgadzają.")
 
 
 
@@ -390,16 +397,28 @@ async def check_event_time():
     if not channel:
         return
 
-    if 870 < delta <= 930:  # ~15 minut wcześniej
+    # 15 minut przed
+    if 870 < delta <= 930:
         mentions = []
-        for member in channel.guild.members:
-            if not member.bot and member.display_name in signups:
-                mentions.append(member.mention)
+        for zapisany in signups:
+            matched = False
+            for member in channel.guild.members:
+                if member.bot:
+                    continue
+                if zapisany.lower().strip() == member.display_name.lower().strip():
+                    mentions.append(member.mention)
+                    matched = True
+                    break
+            if not matched:
+                print(f"[15min ping] Nie znaleziono gracza: {zapisany}")
+
         if mentions:
             await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
 
-    elif 0 < delta <= 60:  # dokładnie o ustalonej godzinie
+    # dokładnie o godzinie
+    elif 0 < delta <= 60:
         await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
+
 
 
 def log_entry(user, action):
