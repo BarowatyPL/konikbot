@@ -455,7 +455,7 @@ class PanelView(discord.ui.View):
         if ctx.author.guild_permissions.administrator:
             self.add_item(ZmienGodzineButton())
             for nick in signups[:MAX_SIGNUPS] + waiting_list:
-                self.add_item(UsuńButton(nick))
+                self.add_item(UsunButton(nick))
                 if nick in signups:
                     self.add_item(PrzeniesDoRezerwowejButton(nick))
                 elif nick in waiting_list:
