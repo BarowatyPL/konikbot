@@ -49,6 +49,7 @@ bot.mvp_mapping = {}
 bot.mvp_vote_messages = []
 bot.last_teams = {}
 bot.zwyciezca = None
+signup_ids = []
 
 wczytaj_dane()
 
@@ -148,39 +149,33 @@ async def czas(ctx, godzina: str = None):
 
 @bot.command()
 async def ping(ctx):
-    if not signups:
+    if not signup_ids:
         await ctx.send("Brak zapisanych graczy.")
         return
 
     mentions = []
-    for zapisany in signups:
-        matched = False
-        for member in ctx.guild.members:
-            if member.bot:
-                continue
-            if zapisany.lower().strip() == member.display_name.lower().strip():
-                mentions.append(member.mention)
-                matched = True
-                break
-        if not matched:
-            print(f"[PING] Nie znaleziono użytkownika o nicku: {zapisany}")
+    for member in ctx.guild.members:
+        if member.id in signup_ids:
+            mentions.append(member.mention)
 
     if mentions:
         await ctx.send("📢 Wołam graczy z listy:\n" + " ".join(mentions))
     else:
-        await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy. Sprawdź, czy nicki się zgadzają.")
+        await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy.")
+
 
 
 
 
 @bot.command()
 async def zapisz(ctx):
-    user = ctx.author.display_name  # używamy nicku z serwera
+    user = ctx.author.display_name
     if user in signups or user in waiting_list:
         await ctx.send(f'{user}, jesteś już zapisany.')
         return
     if len(signups) < MAX_SIGNUPS:
         signups.append(user)
+        signup_ids.append(ctx.author.id)  # zapisujemy ID
         log_entry(user, 'Zapisano')
         await ctx.send(f'{user} został zapisany. ({len(signups)}/{MAX_SIGNUPS})')
     else:
@@ -189,12 +184,16 @@ async def zapisz(ctx):
         await ctx.send(f'{user}, dodano do listy rezerwowej.')
 
 
+
 @bot.command()
 async def wypisz(ctx):
     user = ctx.author.display_name
+    global signup_ids
+
     if user in signups:
         signups.remove(user)
         log_entry(user, 'Wypisano')
+
         aktualizuj_listy()
         await ctx.send(f'{user} został wypisany.')
     elif user in waiting_list:
@@ -206,9 +205,12 @@ async def wypisz(ctx):
         await ctx.send(f'{user}, nie jesteś zapisany.')
 
 
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def dodaj(ctx, *, user):
+    global signup_ids
+
     if user in signups or user in waiting_list:
         await ctx.send(f'{user} już jest zapisany.')
     else:
@@ -216,6 +218,7 @@ async def dodaj(ctx, *, user):
         log_entry(user, 'Dodany ręcznie')
         aktualizuj_listy()
         await ctx.send(f'✅ Dodano {user} do zapisów.')
+
 
 
 @bot.command()
@@ -427,9 +430,17 @@ def log_entry(user, action):
         f.write(f'[{timestamp}] {action}: {user}\n')
 
 def aktualizuj_listy():
-    global signups, waiting_list
+    global signups, waiting_list, signup_ids
     combined = signups + waiting_list
     signups = combined[:MAX_SIGNUPS]
     waiting_list = combined[MAX_SIGNUPS:]
+
+    # aktualizacja ID graczy z głównej listy
+    signup_ids = []
+    for nick in signups:
+        for member in bot.get_all_members():
+            if not member.bot and member.display_name.lower().strip() == nick.lower().strip():
+                signup_ids.append(member.id)
+                break
 
 bot.run(TOKEN)
