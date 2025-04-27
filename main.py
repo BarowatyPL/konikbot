@@ -288,30 +288,29 @@ async def panel(ctx):
 
 
 def generuj_embed_panel():
-    embed = discord.Embed(title="📋 Lista graczy (Panel)", color=discord.Color.green())
     zapisani_display = signups[:MAX_SIGNUPS]
     rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
 
+    embed = discord.Embed(title="📋 Lista graczy (Panel)", color=discord.Color.green())
     czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
     embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
 
+    opis = ""
+
     if zapisani_display:
-        embed.add_field(
-            name="✅ Gracze zapisani (do 10)",
-            value="\n".join(f"{i+1}. {nick}" for i, nick in enumerate(zapisani_display)),
-            inline=False
-        )
+        for i, nick in enumerate(zapisani_display, start=1):
+            opis += f"{i}. {nick}\n"
     else:
-        embed.add_field(name="✅ Gracze zapisani", value="Brak", inline=False)
+        opis += "Brak zapisanych graczy\n"
 
     if rezerwowi_display:
-        embed.add_field(
-            name="🕒 Rezerwowi",
-            value="\n".join(f"- {nick}" for nick in rezerwowi_display),
-            inline=False
-        )
+        opis += "\n=== Rezerwowi ===\n"
+        for i, nick in enumerate(rezerwowi_display, start=1):
+            opis += f"{i}. {nick}\n"
 
+    embed.add_field(name="✅ Gracze zapisani", value=opis.strip(), inline=False)
     return embed
+
 
 class UsunButton(discord.ui.Button):
     def __init__(self, nick):
