@@ -529,15 +529,13 @@ class ZapiszButton(discord.ui.Button):
 
         aktualizuj_listy()
         print("[DEBUG] Zapisano:", signups)
-        
-        # Ustawiamy poprawnie ctx
+
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
 
-        await interaction.response.edit_message(
-            embed=generuj_embed_panel(),
-            view=PanelView(ctx)
-        )
+        await interaction.message.delete()
+        await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+
 
 class WypiszButton(discord.ui.Button):
     def __init__(self):
