@@ -242,7 +242,7 @@ async def usun(ctx, *, user):
     else:
         await ctx.send(f'{user} nie znajduje się na liście.')
 
-@bot.command()
+
 @bot.command()
 async def lista(ctx):
     zapisani_display = signups[:MAX_SIGNUPS]
@@ -273,7 +273,7 @@ async def lista(ctx):
     await ctx.send(embed=embed, view=view)
 
 @bot.command(name="panel")
-async def show_panel(ctx):
+async def dynamic_panel(ctx):
     view = PanelView(ctx)
     embed = generuj_embed_panel()
     await ctx.send(embed=embed, view=view)
