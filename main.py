@@ -709,17 +709,23 @@ class RezerwowyButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         nick = interaction.user.display_name
 
-        if nick in signups or nick in waiting_list:
-            await interaction.response.send_message("Już jesteś na liście.", ephemeral=True)
+        if nick in signups:
+            await interaction.response.send_message("Jesteś już na głównej liście.", ephemeral=True)
+            return
+
+        if nick in waiting_list:
+            await interaction.response.send_message("Jesteś już na liście rezerwowej.", ephemeral=True)
             return
 
         waiting_list.append(nick)
         log_entry(nick, "Dodano do rezerwowej przez przycisk")
         aktualizuj_listy()
+
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
         await interaction.message.delete()
         await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+
 
 
 class PrzeniesDoRezerwowejButton(discord.ui.Button):
