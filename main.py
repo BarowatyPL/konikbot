@@ -150,7 +150,7 @@ async def czas(ctx, godzina: str = None):
 
 
 @bot.command()
-async def ping(ctx):
+async def wolam(ctx):
     print("[DEBUG] signup_ids:", signup_ids)
     if not signup_ids:
         await ctx.send("Brak zapisanych graczy.")
