@@ -392,31 +392,29 @@ async def check_event_time():
         print("[DEBUG] Brak ustawionego event_time.")
         return
 
-    now = datetime.now()
+    # Odejmij 2 godziny, żeby dopasować do strefy czasowej (np. CEST)
+    now = datetime.now() - timedelta(hours=2)
     event_today = datetime.combine(now.date(), event_time)
-
-
-    now = now.replace(tzinfo=None)  # usuwa strefę jeśli była
-    event_today = event_today.replace(tzinfo=None)
-
     delta = (event_today - now).total_seconds()
-    print("[DEBUG] now:", now)
-    print("[DEBUG] event_today:", event_today)
     print("[DEBUG] delta:", delta)
 
     channel = bot.get_channel(1216013668773265458)
     if not channel:
+        print("[DEBUG] Nie znaleziono kanału przypomnienia.")
         return
 
+    # Przypomnienie 15 minut przed wydarzeniem
     if 870 < delta <= 930:
         mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
         if mentions:
             await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
         else:
             await channel.send("⚠️ Nie udało się pingować graczy.")
+
+    # Dokładnie o godzinie wydarzenia
     elif 0 < delta <= 60:
         await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
-        await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
+
 
 
 
