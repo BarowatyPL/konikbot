@@ -160,7 +160,7 @@ async def wolam(ctx):
     mentions = [member.mention for member in ctx.guild.members if member.id in signup_ids]
     print("[DEBUG] ctx.guild.members:", [m.display_name for m in ctx.guild.members])
     if mentions:
-        await ctx.send("📢 Wołam graczy z listy:\n" + " ".join(mentions))
+        await ctx.send("📢 Zapraszam na grę:\n" + " ".join(mentions))
     else:
         await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy.")
 
@@ -243,12 +243,12 @@ async def usun(ctx, *, user):
         await ctx.send(f'{user} nie znajduje się na liście.')
 
 @bot.command()
+@bot.command()
 async def lista(ctx):
-    embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.teal())
-
     zapisani_display = signups[:MAX_SIGNUPS]
     rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
 
+    embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.teal())
     czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
     embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
 
@@ -259,11 +259,7 @@ async def lista(ctx):
             inline=False
         )
     else:
-        embed.add_field(
-            name="✅ Gracze zapisani (do 10)",
-            value="Brak zapisanych graczy",
-            inline=False
-        )
+        embed.add_field(name="✅ Gracze zapisani (do 10)", value="Brak zapisanych graczy", inline=False)
 
     if rezerwowi_display:
         embed.add_field(
@@ -272,7 +268,85 @@ async def lista(ctx):
             inline=False
         )
 
-    await ctx.send(embed=embed)
+    # Dodaj przyciski tylko jeśli użytkownik to administrator
+    view = ListaView(zapisani_display) if ctx.author.guild_permissions.administrator else None
+    await ctx.send(embed=embed, view=view)
+
+@bot.command()
+async def panel(ctx):
+    view = PanelView(ctx)
+    embed = generuj_embed_panel()
+    await ctx.send(embed=embed, view=view)
+
+def generuj_embed_panel():
+    embed = discord.Embed(title="📋 Lista graczy (Panel)", color=discord.Color.green())
+    zapisani_display = signups[:MAX_SIGNUPS]
+    rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
+
+    czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
+    embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
+
+    if zapisani_display:
+        embed.add_field(
+            name="✅ Gracze zapisani (do 10)",
+            value="\n".join(f"{i+1}. {nick}" for i, nick in enumerate(zapisani_display)),
+            inline=False
+        )
+    else:
+        embed.add_field(name="✅ Gracze zapisani", value="Brak", inline=False)
+
+    if rezerwowi_display:
+        embed.add_field(
+            name="🕒 Rezerwowi",
+            value="\n".join(f"- {nick}" for nick in rezerwowi_display),
+            inline=False
+        )
+
+    return embed
+
+class PanelView(discord.ui.View):
+    def __init__(self, ctx):
+        super().__init__(timeout=None)
+        self.ctx = ctx
+        self.add_item(ZapiszButton())
+        self.add_item(WypiszButton())
+        self.add_item(RezerwowyButton())
+        if ctx.author.guild_permissions.administrator:
+            self.add_item(ZmienGodzineButton())
+            for nick in signups[:MAX_SIGNUPS] + waiting_list:
+                self.add_item(UsuńButton(nick))
+                if nick in signups:
+                    self.add_item(PrzeniesDoRezerwowejButton(nick))
+                elif nick in waiting_list:
+                    self.add_item(PrzeniesDoGlownejButton(nick))
+
+class ZmienGodzineButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="⏰ Zmień godzinę", style=discord.ButtonStyle.blurple)
+
+    async def callback(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Nie masz uprawnień do zmiany godziny.", ephemeral=True)
+            return
+
+        await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", ephemeral=True)
+
+        def check(m):
+            return m.author == interaction.user and m.channel == interaction.channel
+
+        try:
+            msg = await bot.wait_for("message", check=check, timeout=30)
+            godzina = msg.content.strip()
+            godz, minuty = map(int, godzina.split(":"))
+            global event_time
+            event_time = time(hour=godz, minute=minuty)
+            await interaction.followup.send(f"Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", ephemeral=True)
+
+            await interaction.message.edit(embed=generuj_embed_panel(), view=PanelView(interaction))
+        except Exception as e:
+            await interaction.followup.send("❌ Nie udało się ustawić godziny. Upewnij się, że podałeś poprawny format (HH:MM).", ephemeral=True)
+
+
 
 ########## KOMENDY DO SYSTEMY RANKINGOWEGO (JESZCZE NIE DZIAŁA) ##############################
 
@@ -404,7 +478,7 @@ async def check_event_time():
         return
 
     # Przypomnienie 15 minut przed wydarzeniem
-    if 870 < delta <= 930:
+    if 15000 < delta <= 16000:
         mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
         if mentions:
             await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
@@ -414,9 +488,6 @@ async def check_event_time():
     # Dokładnie o godzinie wydarzenia
     elif 0 < delta <= 60:
         await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
-
-
-
 
 
 def log_entry(user, action):
@@ -436,6 +507,30 @@ def aktualizuj_listy():
                 signup_ids.append(member.id)
                 print(f"[DEBUG] przypisuję {nick} -> {member.id} ({member.display_name})")
                 break
+
+class ListaView(discord.ui.View):
+    def __init__(self, zapisani):
+        super().__init__(timeout=None)
+        for nick in zapisani:
+            self.add_item(UsunButton(nick))
+            
+class UsunButton(discord.ui.Button):
+    def __init__(self, nick):
+        super().__init__(label=f"Usuń {nick}", style=discord.ButtonStyle.danger)
+        self.nick = nick
+
+    async def callback(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Nie masz uprawnień.", ephemeral=True)
+            return
+
+        if self.nick in signups:
+            signups.remove(self.nick)
+            aktualizuj_listy()
+            await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"{self.nick} już nie ma na liście.", ephemeral=True)
+
 
 
 bot.run(TOKEN)
