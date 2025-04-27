@@ -546,21 +546,64 @@ class ZapiszButton(discord.ui.Button):
         super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Kliknięto Zapisz się", ephemeral=True)
+        nick = interaction.user.display_name
+        user_id = interaction.user.id
+
+        if nick in signups or nick in waiting_list:
+            await interaction.response.send_message("Już jesteś zapisany.", ephemeral=True)
+            return
+
+        if len(signups) < MAX_SIGNUPS:
+            signups.append(nick)
+            if user_id not in signup_ids:
+                signup_ids.append(user_id)
+            log_entry(nick, "Zapisano przez przycisk")
+        else:
+            waiting_list.append(nick)
+            log_entry(nick, "Dodano do rezerwowej przez przycisk")
+
+        aktualizuj_listy()
+        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+
 
 class WypiszButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="❌ Wypisz się", style=discord.ButtonStyle.danger)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Kliknięto Wypisz się", ephemeral=True)
+        nick = interaction.user.display_name
+        removed = False
+
+        if nick in signups:
+            signups.remove(nick)
+            removed = True
+        elif nick in waiting_list:
+            waiting_list.remove(nick)
+            removed = True
+
+        if removed:
+            log_entry(nick, "Wypisano przez przycisk")
+            aktualizuj_listy()
+            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+        else:
+            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True)
+
 
 class RezerwowyButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="🕒 Do rezerwowej", style=discord.ButtonStyle.secondary)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Dodano do rezerwowej", ephemeral=True)
+        nick = interaction.user.display_name
+        if nick in signups or nick in waiting_list:
+            await interaction.response.send_message("Już jesteś na liście.", ephemeral=True)
+            return
+
+        waiting_list.append(nick)
+        log_entry(nick, "Dodano do rezerwowej przez przycisk")
+        aktualizuj_listy()
+        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+
 
 class PrzeniesDoRezerwowejButton(discord.ui.Button):
     def __init__(self, nick):
