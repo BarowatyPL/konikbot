@@ -475,8 +475,7 @@ async def check_event_time():
         print("[DEBUG] Brak ustawionego event_time.")
         return
 
-    # Odejmij 2 godziny, żeby dopasować do strefy czasowej (np. CEST)
-    now = datetime.now() - timedelta(hours=2)
+    now = datetime.now()
     event_today = datetime.combine(now.date(), event_time)
     delta = (event_today - now).total_seconds()
     print("[DEBUG] delta:", delta)
@@ -486,16 +485,13 @@ async def check_event_time():
         print("[DEBUG] Nie znaleziono kanału przypomnienia.")
         return
 
-    # Przypomnienie 15 minut przed wydarzeniem
-    if 15000 < delta <= 16000:
+    if 0 < delta <= 900:
         mentions = [member.mention for member in channel.guild.members if member.id in signup_ids]
         if mentions:
             await channel.send("⏳ Wydarzenie za 15 minut! Obecni:\n" + " ".join(mentions))
         else:
             await channel.send("⚠️ Nie udało się pingować graczy.")
-
-    # Dokładnie o godzinie wydarzenia
-    elif 0 < delta <= 60:
+    elif -60 <= delta <= 0:
         await channel.send("📢 Wydarzenie rozpoczyna się teraz!")
 
 
@@ -510,12 +506,11 @@ def aktualizuj_listy():
     signups = combined[:MAX_SIGNUPS]
     waiting_list = combined[MAX_SIGNUPS:]
     signup_ids = []
-    for nick in signups:
-        for member in bot.get_all_members():
-            if not member.bot and member.display_name.lower().strip() == nick.lower().strip():
+    for member in bot.get_all_members():
+        if not member.bot:
+            if member.display_name in signups:
                 signup_ids.append(member.id)
-                print(f"[DEBUG] przypisuję {nick} -> {member.id} ({member.display_name})")
-                break
+                print(f"[DEBUG] przypisuję {member.display_name} -> {member.id}")
 
 class ListaView(discord.ui.View):
     def __init__(self, zapisani):
@@ -611,12 +606,30 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
         self.nick = nick
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Przeniesiono {self.nick} do rezerwowej", ephemeral=True)
+        if self.nick in signups:
+            signups.remove(self.nick)
+            waiting_list.append(self.nick)
+            aktualizuj_listy()
+            log_entry(self.nick, "Przeniesiono do rezerwowej")
+            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+        else:
+            await interaction.response.send_message("Gracz nie jest w głównej liście.", ephemeral=True)
+
 
 class PrzeniesDoGlownejButton(discord.ui.Button):
     def __init__(self, nick):
         super().__init__(label=f"🔼 {nick}", style=discord.ButtonStyle.primary)
         self.nick = nick
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.nick in waiting_list and len(signups) < MAX_SIGNUPS:
+            waiting_list.remove(self.nick)
+            signups.append(self.nick)
+            aktualizuj_listy()
+            log_entry(self.nick, "Przeniesiono do głównej")
+            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(interaction))
+        else:
+            await interaction.response.send_message("Nie można przenieść (lista pełna lub gracz nie jest w rezerwowej).", ephemeral=True)
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"Przeniesiono {self.nick} do głównej", ephemeral=True)
