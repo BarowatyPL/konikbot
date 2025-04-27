@@ -34,6 +34,8 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True  # <- DODAJ TO TUTAJ
+
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
 # Dane
