@@ -488,12 +488,6 @@ def aktualizuj_listy():
                 signup_ids.append(member.id)
                 print(f"[DEBUG] przypisuję {member.display_name} -> {member.id}")
 
-class ListaView(discord.ui.View):
-    def __init__(self, zapisani):
-        super().__init__(timeout=None)
-        for nick in zapisani:
-            self.add_item(UsunButton(nick))
-            
 class UsunButton(discord.ui.Button):
     def __init__(self, nick):
         super().__init__(label=f"Usuń {nick}", style=discord.ButtonStyle.danger)
@@ -535,11 +529,15 @@ class ZapiszButton(discord.ui.Button):
 
         aktualizuj_listy()
         print("[DEBUG] Zapisano:", signups)
+        
+        # Ustawiamy poprawnie ctx
         ctx = await bot.get_context(interaction.message)
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+        ctx.author = interaction.user
 
-
-
+        await interaction.response.edit_message(
+            embed=generuj_embed_panel(),
+            view=PanelView(ctx)
+        )
 
 class WypiszButton(discord.ui.Button):
     def __init__(self):
@@ -560,11 +558,16 @@ class WypiszButton(discord.ui.Button):
             log_entry(nick, "Wypisano przez przycisk")
             aktualizuj_listy()
             print("[DEBUG] Wypisano:", signups)
+            
             ctx = await bot.get_context(interaction.message)
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+            ctx.author = interaction.user
+
+            await interaction.response.edit_message(
+                embed=generuj_embed_panel(),
+                view=PanelView(ctx)
+            )
         else:
             await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True)
-
 
 
 class RezerwowyButton(discord.ui.Button):
@@ -573,6 +576,7 @@ class RezerwowyButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         nick = interaction.user.display_name
+
         if nick in signups or nick in waiting_list:
             await interaction.response.send_message("Już jesteś na liście.", ephemeral=True)
             return
@@ -581,29 +585,41 @@ class RezerwowyButton(discord.ui.Button):
         log_entry(nick, "Dodano do rezerwowej przez przycisk")
         aktualizuj_listy()
         print("[DEBUG] Dodano do rezerwowej:", waiting_list)
+
         ctx = await bot.get_context(interaction.message)
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+        ctx.author = interaction.user
+
+        await interaction.response.edit_message(
+            embed=generuj_embed_panel(),
+            view=PanelView(ctx)
+        )
 
 
-
-
-class PrzeniesDoRezerwowejButton(discord.ui.Button):
+class PrzeniesDoGlownejButton(discord.ui.Button):
     def __init__(self, nick):
-        super().__init__(label=f"🔽 {nick}", style=discord.ButtonStyle.secondary)
+        super().__init__(label=f"🔼 {nick}", style=discord.ButtonStyle.primary)
         self.nick = nick
 
     async def callback(self, interaction: discord.Interaction):
-        if self.nick in signups:
-            signups.remove(self.nick)
-            waiting_list.append(self.nick)
+        if self.nick in waiting_list and len(signups) < MAX_SIGNUPS:
+            waiting_list.remove(self.nick)
+            signups.append(self.nick)
             aktualizuj_listy()
-            log_entry(self.nick, "Przeniesiono do rezerwowej")
-            print("[DEBUG] Przeniesiono do rezerwowej:", self.nick)
-            ctx = await bot.get_context(interaction.message)
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
-        else:
-            await interaction.response.send_message("Gracz nie jest w głównej liście.", ephemeral=True)
+            log_entry(self.nick, "Przeniesiono do głównej")
+            print("[DEBUG] Przeniesiono do głównej:", self.nick)
 
+            ctx = await bot.get_context(interaction.message)
+            ctx.author = interaction.user
+
+            await interaction.response.edit_message(
+                embed=generuj_embed_panel(),
+                view=PanelView(ctx)
+            )
+        else:
+            await interaction.response.send_message(
+                "Nie można przenieść (lista pełna lub gracz nie jest w rezerwowej).",
+                ephemeral=True
+            )
 
 
 
@@ -626,6 +642,12 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
 
 
 
+
+class ListaView(discord.ui.View):
+    def __init__(self, zapisani):
+        super().__init__(timeout=None)
+        for nick in zapisani:
+            self.add_item(UsunButton(nick))
 
 
 bot.run(TOKEN)
