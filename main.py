@@ -68,7 +68,7 @@ def generate_embed():
 
     # czas wydarzenia (jeśli ustawiony)
     if event_time:
-        embed.description = f"🕒 **Czas wydarzenia:** {event_time.strftime('%d.%m.%Y %H:%M')}"
+        embed.description = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
     else:
         embed.description = "🕒 **Czas wydarzenia nie został jeszcze ustawiony.**"
 
@@ -113,7 +113,6 @@ class SignupPanel(discord.ui.View):
 
         if user in signups:
             signups.remove(user)
-            # Przesuwanie z rezerwy tylko jeśli nie był zapisany bezpośrednio
             if waiting_list:
                 moved_user = waiting_list.pop(0)
                 signups.append(moved_user)
@@ -143,26 +142,33 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True)
             return
 
-        await interaction.response.send_message("Podaj czas wydarzenia w formacie `DD.MM.RRRR HH:MM` (np. 28.04.2025 21:00):", ephemeral=True)
+        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True)
 
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
 
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
+            hour, minute = map(int, msg.content.strip().split(":"))
+            now = datetime.now()
             global event_time
-            event_time = datetime.strptime(msg.content, "%d.%m.%Y %H:%M")
+            event_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+            if event_time < now:
+                event_time += timedelta(days=1)
+
             await msg.delete()
             await self.update_message(interaction)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
         except ValueError:
-            await interaction.followup.send("Niepoprawny format daty.", ephemeral=True)
+            await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True)
 
     async def update_message(self, interaction: discord.Interaction):
         embed = generate_embed()
         await self.message.edit(embed=embed, view=self)
         await interaction.response.defer()
+
 
 
 @bot.command()
