@@ -138,11 +138,11 @@ class SignupPanel(discord.ui.View):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=5)
             return
-        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True, delete_after=5)
-
+        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True)
+    
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
-
+    
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             hour, minute = map(int, msg.content.strip().split(":"))
@@ -153,11 +153,14 @@ class SignupPanel(discord.ui.View):
                 event_time += timedelta(days=1)
             await msg.delete()
             await self.update_message(interaction)
+            await log_to_discord(f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
         except asyncio.TimeoutError:
-            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
+            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+            await log_to_discord(f"⚠️ {interaction.user.mention} nie ustawił czasu — przekroczono limit czasu.")
         except ValueError:
-            await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True)
-        await log_to_discord(f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
+            await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True, delete_after=5)
+            await log_to_discord(f"⚠️ {interaction.user.mention} podał niepoprawny format godziny.")
+
 
 
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
@@ -289,7 +292,7 @@ async def log_to_discord(message: str):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         await channel.send(f"[{timestamp}] {message}")
 
-@bot.command(name="pokaż_logi")
+@bot.command(name="logi")
 @commands.has_permissions(administrator=True)
 async def logi(ctx, liczba: int = 10):
     """Pokazuje ostatnie X logów z kanału logów (domyślnie 10)."""
