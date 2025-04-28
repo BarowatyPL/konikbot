@@ -5,6 +5,7 @@ import asyncio
 import os
 import json
 import random
+import asyncpg
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
@@ -31,6 +32,7 @@ keep_alive()
 # Intents i bot
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
+DB_URL = os.getenv("DATABASE_URL")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -60,6 +62,14 @@ ranking_mode = False
 
 
 wczytaj_dane()
+
+# ---------- BAZA DANYCH ---------- #
+
+db = None
+
+async def connect_to_db():
+    global db
+    db = await asyncpg.connect(os.getenv("DATABASE_URL"))
 
 @bot.event
 async def on_ready():
