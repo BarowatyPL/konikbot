@@ -96,7 +96,7 @@ class SignupPanel(discord.ui.View):
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         if user in signups or user in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True)
+            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5))
             return
         if len(signups) < MAX_SIGNUPS:
             signups.append(user)
@@ -115,7 +115,7 @@ class SignupPanel(discord.ui.View):
         elif user in waiting_list:
             waiting_list.remove(user)
         else:
-            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True)
+            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True, delete_after=5)
             return
         await self.update_message(interaction)
 
@@ -123,7 +123,7 @@ class SignupPanel(discord.ui.View):
     async def reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         if user in signups or user in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True)
+            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
             return
         waiting_list.append(user)
         await self.update_message(interaction)
@@ -131,9 +131,9 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True)
+            await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=5)
             return
-        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True)
+        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True, delete_after=5)
 
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
@@ -156,9 +156,9 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
     async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może usuwać graczy.", ephemeral=True)
+            await interaction.response.send_message("Tylko administrator może usuwać graczy.", ephemeral=True, delete_after=5)
             return
-        await interaction.response.send_message("Podaj @użytkownika do usunięcia z listy:", ephemeral=True)
+        await interaction.response.send_message("Podaj @użytkownika do usunięcia z listy:", ephemeral=True, delete_after=5)
 
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
@@ -187,12 +187,12 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
     async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może przenosić graczy.", ephemeral=True)
+            await interaction.response.send_message("Tylko administrator może przenosić graczy.", ephemeral=True, delete_after=5)
             return
         if len(signups) >= MAX_SIGNUPS:
-            await interaction.response.send_message("Lista główna jest już pełna.", ephemeral=True)
+            await interaction.response.send_message("Lista główna jest już pełna.", ephemeral=True, delete_after=5)
             return
-        await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy do głównej:", ephemeral=True)
+        await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy do głównej:", ephemeral=True, delete_after=5)
 
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
@@ -216,20 +216,20 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="🧹 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
     async def clear_lists(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może czyścić listy.", ephemeral=True)
+            await interaction.response.send_message("Tylko administrator może czyścić listy.", ephemeral=True, delete_after=5)
             return
         signups.clear()
         waiting_list.clear()
-        await interaction.response.send_message("Listy zostały wyczyszczone.", ephemeral=True)
+        await interaction.response.send_message("Listy zostały wyczyszczone.", ephemeral=True, delete_after=5)
         await self.update_message(interaction)
 
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
     async def ping_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True)
+            await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=5)
             return
         if not signups:
-            await interaction.response.send_message("Lista główna jest pusta.", ephemeral=True)
+            await interaction.response.send_message("Lista główna jest pusta.", ephemeral=True, delete_after=5)
             return
         mentions = " ".join(user.mention for user in signups)
         await interaction.response.send_message(f"Pinguję listę główną:\n{mentions}")
@@ -237,10 +237,10 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True)
+            await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=5)
             return
         if not waiting_list:
-            await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True)
+            await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True, delete_after=5)
             return
         mentions = " ".join(user.mention for user in waiting_list)
         await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}")
