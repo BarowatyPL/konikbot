@@ -546,14 +546,12 @@ class PanelView(discord.ui.View):
     def __init__(self, ctx):
         super().__init__(timeout=None)
         self.ctx = ctx
+
         self.add_item(ZapiszButton())
         self.add_item(WypiszButton())
         self.add_item(RezerwowyButton())
         self.add_item(ZmienGodzineButton())
-        for nick in signups[:MAX_SIGNUPS] + waiting_list:
-            self.add_item(UsunButton(nick))
-            self.add_item(PrzeniesDoRezerwowejButton(nick))
-            self.add_item(PrzeniesDoGlownejButton(nick))
+
 
 
 
