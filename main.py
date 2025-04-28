@@ -307,12 +307,16 @@ async def panel(ctx):
 
     if bot.panel_message:
         try:
+            print("[DEBUG] Edytuję istniejący panel")
             await bot.panel_message.edit(embed=embed, view=view)
             return
         except discord.NotFound:
+            print("[DEBUG] Poprzedni panel nie istnieje")
             bot.panel_message = None
 
     bot.panel_message = await ctx.send(embed=embed, view=view)
+    print("[DEBUG] Zapisano bot.panel_message:", bot.panel_message)
+
 
 
 
@@ -393,8 +397,15 @@ class ZapiszButton(discord.ui.Button):
         aktualizuj_listy()
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
+
+        print("[DEBUG] Z panelu: bot.panel_message =", bot.panel_message)
+
         if bot.panel_message:
-            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+            await bot.panel_message.edit(
+                embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+                view=PanelView(ctx)
+            )
+
 
 
 
