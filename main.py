@@ -73,8 +73,11 @@ async def connect_to_db():
 
 @bot.event
 async def on_ready():
+    await connect_to_db()
+    await create_tables()
     print(f'Zalogowano jako {bot.user.name}')
     check_event_time.start()
+
 
 @tasks.loop(seconds=60)
 async def check_event_time():
@@ -100,6 +103,41 @@ async def check_event_time():
             await channel.send(f"⏰ **Przypomnienie!** Customy za 15 minut!\n{mentions}")
         else:
             await channel.send("⏰ Customy za 15 minut, ale lista główna jest pusta.")
+
+async def create_tables():
+    await db.execute('''
+        CREATE TABLE IF NOT EXISTS gracze (
+            nick TEXT PRIMARY KEY,
+            elo INTEGER NOT NULL,
+            zagrane INTEGER NOT NULL,
+            wygrane INTEGER NOT NULL,
+            przegrane INTEGER NOT NULL,
+            mvp INTEGER NOT NULL
+        )
+    ''')
+    print("✅ Tabela gracze gotowa.")
+
+async def aktualizuj_gracza(nick, elo, zagrane, wygrane, przegrane, mvp):
+    await db.execute('''
+        INSERT INTO gracze (nick, elo, zagrane, wygrane, przegrane, mvp)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (nick)
+        DO UPDATE SET
+            elo = EXCLUDED.elo,
+            zagrane = EXCLUDED.zagrane,
+            wygrane = EXCLUDED.wygrane,
+            przegrane = EXCLUDED.przegrane,
+            mvp = EXCLUDED.mvp
+    ''', nick, elo, zagrane, wygrane, przegrane, mvp)
+
+async def pobierz_gracza(nick):
+    row = await db.fetchrow('SELECT * FROM gracze WHERE nick = $1', nick)
+    if row:
+        return dict(row)
+    else:
+        return None
+
+
 
 
 # ---------- SYSTEM ZAPISÓW I WYŚWIETLANIA ---------- #
@@ -362,6 +400,52 @@ async def lista(ctx):
     """Wyświetla listę zapisanych bez przycisków (tylko dla admina)."""
     embed = generate_embed()
     await ctx.send(embed=embed)
+
+# ---------- KOMENDY DO GIER RANKINGOWYCH ---------- #
+
+@bot.command(name="profil")
+async def profil(ctx, member: discord.Member = None):
+    """Pokazuje profil gracza."""
+    if member is None:
+        member = ctx.author
+
+    gracz = await pobierz_gracza(str(member))
+
+    if not gracz:
+        await ctx.send(f"❌ {member.mention} nie ma jeszcze profilu w rankingu.")
+        return
+
+    embed = discord.Embed(title=f"Profil gracza {member.name}", color=discord.Color.blue())
+    embed.add_field(name="ELO", value=gracz["elo"], inline=True)
+    embed.add_field(name="Zagrane mecze", value=gracz["zagrane"], inline=True)
+    embed.add_field(name="Wygrane", value=gracz["wygrane"], inline=True)
+    embed.add_field(name="Przegrane", value=gracz["przegrane"], inline=True)
+    embed.add_field(name="MVP", value=gracz["mvp"], inline=True)
+
+    await ctx.send(embed=embed)
+
+@bot.command(name="ranking")
+async def ranking(ctx, top: int = 10):
+    """Pokazuje ranking ELO (domyślnie top 10)."""
+    rows = await db.fetch('SELECT * FROM gracze ORDER BY elo DESC LIMIT $1', top)
+
+    if not rows:
+        await ctx.send("❌ Brak graczy w rankingu.")
+        return
+
+    description = ""
+    for i, row in enumerate(rows, start=1):
+        description += f"**{i}.** {row['nick']} - {row['elo']} ELO\n"
+
+    embed = discord.Embed(title=f"🏆 Top {top} Graczy", description=description, color=discord.Color.gold())
+    await ctx.send(embed=embed)
+
+
+
+
+
+
+
 
 # ---------- KOMENDY DLA BEKI ---------- #
 
