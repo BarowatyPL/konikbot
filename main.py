@@ -319,23 +319,54 @@ def generuj_embed_panel(tytul="📋 Lista graczy"):
     czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
     embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
 
-    opis = ""
-
     if zapisani_display:
-        for i, nick in enumerate(zapisani_display, start=1):
-            opis += f"{i}. {nick}\n"
+        value_zapisani = "\n".join(f"{i+1}. {nick}" for i, nick in enumerate(zapisani_display))
     else:
-        opis += "Brak zapisanych graczy\n"
+        value_zapisani = "Brak zapisanych graczy"
+
+    embed.add_field(name="✅ Zapisani", value=value_zapisani, inline=False)
 
     if rezerwowi_display:
-        opis += "\n=== Rezerwowi ===\n"
-        for i, nick in enumerate(rezerwowi_display, start=1):
-            opis += f"{i}. {nick}\n"
+        value_rezerwowi = "\n".join(f"{i+1}. {nick}" for i, nick in enumerate(rezerwowi_display))
+        embed.add_field(name="🕒 Rezerwowi", value=value_rezerwowi, inline=False)
 
-    embed.add_field(name="✅ Gracze zapisani", value=opis.strip(), inline=False)
     return embed
 
 
+async def odswiez_panel():
+    if bot.panel_message:
+        embed = generuj_embed_panel("📋 Lista graczy (Panel)")
+        view = PanelView()
+        await bot.panel_message.edit(embed=embed, view=view)
+
+
+
+class ZapiszButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        nick = interaction.user.display_name
+        user_id = interaction.user.id
+
+        if nick in signups or nick in waiting_list:
+            await interaction.followup.send("⚠️ Już jesteś zapisany.", delete_after=5)
+            return
+
+        if len(signups) < MAX_SIGNUPS:
+            signups.append(nick)
+            if user_id not in signup_ids:
+                signup_ids.append(user_id)
+            log_entry(nick, "Zapisano przez przycisk")
+        else:
+            waiting_list.append(nick)
+            log_entry(nick, "Dodano do rezerwowej przez przycisk")
+
+        aktualizuj_listy()
+        await odswiez_panel()
+        await interaction.followup.send("✅ Zapisano pomyślnie!", delete_after=5)
 
 
 
@@ -362,39 +393,6 @@ class UsunButton(discord.ui.Button):
         await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=False, delete_after=10)
 
 
-
-class ZapiszButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
-
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.defer()  # ✅ nie wysyła nowej wiadomości
-
-        nick = interaction.user.display_name
-        user_id = interaction.user.id
-
-        if nick in signups or nick in waiting_list:
-            await interaction.followup.send("Już jesteś zapisany.", ephemeral=False, delete_after=10)
-            return
-
-        if len(signups) < MAX_SIGNUPS:
-            signups.append(nick)
-            if user_id not in signup_ids:
-                signup_ids.append(user_id)
-            log_entry(nick, "Zapisano przez przycisk")
-        else:
-            waiting_list.append(nick)
-            log_entry(nick, "Dodano do rezerwowej przez przycisk")
-
-        aktualizuj_listy()
-        ctx = await bot.get_context(interaction.message)
-        ctx.author = interaction.user
-
-        if bot.panel_message:
-            await bot.panel_message.edit(
-                embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
-                view=PanelView(ctx)
-            )
 
 
 class WypiszButton(discord.ui.Button):
