@@ -455,6 +455,9 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
         if self.nick in signups:
             signups.remove(self.nick)
             waiting_list.append(self.nick)
+        else:
+            await interaction.response.send_message("Gracz nie jest w głównej liście.", ephemeral=False, delete_after=10)
+            return
 
         log_entry(self.nick, "Przeniesiono do rezerwowej")
         aktualizuj_listy()
@@ -462,6 +465,7 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
         ctx.author = interaction.user
         if bot.panel_message:
             await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+
 
 
 
@@ -475,6 +479,9 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
         if self.nick in waiting_list and len(signups) < MAX_SIGNUPS:
             waiting_list.remove(self.nick)
             signups.append(self.nick)
+        else:
+            await interaction.response.send_message("Nie można przenieść (lista pełna lub gracz nie jest w rezerwowej).", ephemeral=False, delete_after=10)
+            return
 
         log_entry(self.nick, "Przeniesiono do głównej")
         aktualizuj_listy()
@@ -485,33 +492,45 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
 
 
 
+
 class ZmienGodzineButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="⏰ Zmień godzinę", style=discord.ButtonStyle.blurple)
 
     async def callback(self, interaction: discord.Interaction):
-        msg_prompt = await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", ephemeral=False, delete_after=10)
+        await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", ephemeral=False, delete_after=10)
 
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
 
         try:
             msg = await bot.wait_for("message", check=check, timeout=30)
+
             godzina = msg.content.strip()
             godz, minuty = map(int, godzina.split(":"))
             global event_time
             event_time = time(hour=godz, minute=minuty)
+
             await msg.delete(delay=10)
-            await interaction.followup.send(f"✅ Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", delete_after=10)
+
+            await interaction.followup.send(
+                f"✅ Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**",
+                delete_after=10
+            )
 
             aktualizuj_listy()
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
+
             if bot.panel_message:
-                await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+                await bot.panel_message.edit(
+                    embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+                    view=PanelView(ctx)
+                )
 
         except Exception:
             await interaction.followup.send("❌ Nie udało się ustawić godziny. Format HH:MM.", delete_after=10)
+
 
 
 class PanelView(discord.ui.View):
