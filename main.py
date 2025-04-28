@@ -52,6 +52,8 @@ bot.last_teams = {}
 bot.zwyciezca = None
 signup_ids = []
 reminder_sent = False
+panel_channel = None
+
 
 
 wczytaj_dane()
@@ -75,20 +77,16 @@ async def check_event_time():
     if timedelta(minutes=14) < diff <= timedelta(minutes=15):
         reminder_sent = True
 
-        log_channel_id = 1366403342695141446  # ← ID kanału przypomnień
-        channel = bot.get_channel(log_channel_id)
-
+        channel = panel_channel
         if not channel:
-            print("Nie mogę znaleźć kanału do przypomnienia.")
+            print("❌ Nie znaleziono kanału panelu do przypomnienia.")
             return
-
+        
         if signups:
             mentions = " ".join(user.mention for user in signups)
             await channel.send(f"⏰ **Przypomnienie!** Wydarzenie za 15 minut!\n{mentions}")
-            await log_to_discord("📣 Bot wysłał przypomnienie 15 minut przed wydarzeniem.")
         else:
             await channel.send("⏰ Wydarzenie za 15 minut, ale lista główna jest pusta.")
-
 
 
 # ---------- SYSTEM ZAPISÓW ---------- #
@@ -308,10 +306,15 @@ class SignupPanel(discord.ui.View):
 @bot.command()
 async def panel(ctx):
     """Pokazuje panel zapisów z przyciskami."""
+    global panel_channel
+    panel_channel = ctx.channel
+
     embed = generate_embed()
     view = SignupPanel()
     message = await ctx.send(embed=embed, view=view)
     view.message = message
+
+
 
 
 
