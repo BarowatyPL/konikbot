@@ -291,11 +291,11 @@ async def panel(ctx):
 
 
 
-def generuj_embed_panel():
+def generuj_embed_panel(tytul="📋 Lista graczy"):
     zapisani_display = signups[:MAX_SIGNUPS]
     rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
 
-    embed = discord.Embed(title="📋 Lista graczy (Panel)", color=discord.Color.green())
+    embed = discord.Embed(title=tytul, color=discord.Color.green())
     czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
     embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
 
@@ -314,6 +314,7 @@ def generuj_embed_panel():
 
     embed.add_field(name="✅ Gracze zapisani", value=opis.strip(), inline=False)
     return embed
+
 
 
 
