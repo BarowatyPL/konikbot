@@ -225,6 +225,8 @@ class SignupPanel(discord.ui.View):
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
         await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
 
+    
+
     @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
@@ -238,6 +240,7 @@ class SignupPanel(discord.ui.View):
     
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
+    
             if not msg.mentions:
                 await interaction.followup.send("Musisz oznaczyć użytkownika (@).", ephemeral=True, delete_after=5)
                 return
@@ -246,6 +249,7 @@ class SignupPanel(discord.ui.View):
     
             if user in signups or user in waiting_list:
                 await interaction.followup.send("Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
+                await msg.delete()
                 return
     
             if len(signups) < MAX_SIGNUPS:
@@ -257,11 +261,12 @@ class SignupPanel(discord.ui.View):
                 await interaction.followup.send(f"{user.mention} został dodany do listy rezerwowej.", ephemeral=True, delete_after=5)
                 await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy rezerwowej.")
     
-            await msg.delete()
-            await self.update_message(interaction)
+            await msg.delete()  # <-- usuwa wiadomość z @gracz
+            await self.update_message(interaction)  # <-- odświeża panel
     
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+
 
 
 
