@@ -61,8 +61,17 @@ async def on_ready():
 
 # ---------- SYSTEM ZAPISÓW ---------- #
 
+event_time = None  # dodane globalnie
+
 def generate_embed():
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
+
+    # czas wydarzenia (jeśli ustawiony)
+    if event_time:
+        embed.description = f"🕒 **Czas wydarzenia:** {event_time.strftime('%d.%m.%Y %H:%M')}"
+    else:
+        embed.description = "🕒 **Czas wydarzenia nie został jeszcze ustawiony.**"
+
     if signups:
         signup_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(signups))
     else:
@@ -104,7 +113,7 @@ class SignupPanel(discord.ui.View):
 
         if user in signups:
             signups.remove(user)
-            # Jeśli ktoś czekał, przesuń z rezerwy do głównej
+            # Przesuwanie z rezerwy tylko jeśli nie był zapisany bezpośrednio
             if waiting_list:
                 moved_user = waiting_list.pop(0)
                 signups.append(moved_user)
@@ -117,17 +126,52 @@ class SignupPanel(discord.ui.View):
 
         await self.update_message(interaction)
 
+    @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary)
+    async def reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user = interaction.user
+
+        if user in signups or user in waiting_list:
+            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True)
+            return
+
+        waiting_list.append(user)
+        await self.update_message(interaction)
+
+    @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
+    async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True)
+            return
+
+        await interaction.response.send_message("Podaj czas wydarzenia w formacie `DD.MM.RRRR HH:MM` (np. 28.04.2025 21:00):", ephemeral=True)
+
+        def check(msg):
+            return msg.author == interaction.user and msg.channel == interaction.channel
+
+        try:
+            msg = await bot.wait_for("message", timeout=60.0, check=check)
+            global event_time
+            event_time = datetime.strptime(msg.content, "%d.%m.%Y %H:%M")
+            await msg.delete()
+            await self.update_message(interaction)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
+        except ValueError:
+            await interaction.followup.send("Niepoprawny format daty.", ephemeral=True)
+
     async def update_message(self, interaction: discord.Interaction):
         embed = generate_embed()
         await self.message.edit(embed=embed, view=self)
-        await interaction.response.defer()  # ukrywa "thinking..."
+        await interaction.response.defer()
 
 
-@bot.command()
-async def panel(ctx):
-    """Pokazuje panel zapisów z przyciskami."""
-    embed = generate_embed()
-    view = SignupPanel()
-    message = await ctx.send(embed=embed, view=view)
-    view.message = message  # przypisz wiadomość do edytowania później
+
+
+
+
+
+
+
+
+
 bot.run(TOKEN)
