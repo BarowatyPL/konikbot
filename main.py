@@ -68,13 +68,14 @@ async def check_event_time():
     if event_time is None or reminder_sent:
         return
 
-    now = datetime.now()
+    now = datetime.now() + timedelta(hours=2)  # ← kompensacja UTC → CEST
+
     diff = event_time - now
 
-    if timedelta(minutes=14) < diff <= timedelta(minutes=15):  # sprawdzamy dokładnie tę minutę
+    if timedelta(minutes=14) < diff <= timedelta(minutes=15):
         reminder_sent = True
 
-        log_channel_id = 1366403342695141446  # ← możesz zmienić na dowolny kanał
+        log_channel_id = 1366403342695141446  # ← ID kanału przypomnień
         channel = bot.get_channel(log_channel_id)
 
         if not channel:
@@ -87,6 +88,7 @@ async def check_event_time():
             await log_to_discord("📣 Bot wysłał przypomnienie 15 minut przed wydarzeniem.")
         else:
             await channel.send("⏰ Wydarzenie za 15 minut, ale lista główna jest pusta.")
+
 
 
 # ---------- SYSTEM ZAPISÓW ---------- #
