@@ -446,20 +446,6 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
         ctx.author = interaction.user
         await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
 
-class PanelView(discord.ui.View):
-    def __init__(self, ctx):
-        super().__init__(timeout=None)
-        self.ctx = ctx
-        self.add_item(ZapiszButton())
-        self.add_item(WypiszButton())
-        self.add_item(RezerwowyButton())
-        self.add_item(ZmienGodzineButton())
-        for nick in signups[:MAX_SIGNUPS] + waiting_list:
-            self.add_item(UsunButton(nick))
-            self.add_item(PrzeniesDoRezerwowejButton(nick))
-            self.add_item(PrzeniesDoGlownejButton(nick))
-
-
 
 class ZmienGodzineButton(discord.ui.Button):
     def __init__(self):
@@ -477,17 +463,29 @@ class ZmienGodzineButton(discord.ui.Button):
             godz, minuty = map(int, godzina.split(":"))
             global event_time
             event_time = time(hour=godz, minute=minuty)
-            await interaction.followup.send(f"Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", ephemeral=True)
+            await interaction.followup.send(f"✅ Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", ephemeral=True)
 
+            # 🔁 aktualizacja wiadomości
             aktualizuj_listy()
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+            await interaction.message.edit(embed=generuj_embed_panel(), view=PanelView(ctx))
 
         except Exception:
-            await interaction.followup.send("❌ Nie udało się ustawić godziny.", ephemeral=True)
+            await interaction.followup.send("❌ Nie udało się ustawić godziny. Format HH:MM.", ephemeral=True)
 
-
+class PanelView(discord.ui.View):
+    def __init__(self, ctx):
+        super().__init__(timeout=None)
+        self.ctx = ctx
+        self.add_item(ZapiszButton())
+        self.add_item(WypiszButton())
+        self.add_item(RezerwowyButton())
+        self.add_item(ZmienGodzineButton())
+        for nick in signups[:MAX_SIGNUPS] + waiting_list:
+            self.add_item(UsunButton(nick))
+            self.add_item(PrzeniesDoRezerwowejButton(nick))
+            self.add_item(PrzeniesDoGlownejButton(nick))
 
 
 
