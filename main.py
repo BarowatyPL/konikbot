@@ -52,7 +52,7 @@ bot.mvp_vote_messages = []
 bot.last_teams = {}
 bot.zwyciezca = None
 signup_ids = []
-
+bot.panel_message = None
 wczytaj_dane()
 
 @bot.event
@@ -172,35 +172,26 @@ async def wolam(ctx):
         await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy.")
 
 
-@bot.command()
-async def zapisz(ctx):
-    user = ctx.author.display_name
-    user_id = ctx.author.id
+class ZapiszButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
 
-    if user in signups or user in waiting_list:
-        await ctx.send(f'{user}, jesteś już zapisany.')
-        return
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.defer()
 
-    if len(signups) < MAX_SIGNUPS:
-        signups.append(user)
-        if user_id not in signup_ids:
-            signup_ids.append(user_id)
-        log_entry(user, 'Zapisano')
-        print("[DEBUG] signup_ids:", signup_ids)
-        await ctx.send(f'{user} został zapisany. ({len(signups)}/{MAX_SIGNUPS})')
-    else:
-        waiting_list.append(user)
-        log_entry(user, 'Lista rezerwowa')
-        await ctx.send(f'{user}, dodano do listy rezerwowej.')
+        nick = interaction.user.display_name
+        if nick in signups:
+            await interaction.followup.send("Już jesteś zapisany.", delete_after=5)
+            return
 
-    # 🔁 Odśwież panel jeśli istnieje
-    aktualizuj_listy()
-    if bot.panel_message:
-        panel_ctx = await bot.get_context(ctx.message)
-        panel_ctx.author = ctx.author
-        await bot.panel_message.edit(
-            embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
-            view=PanelView(panel_ctx)
+        signups.append(nick)
+
+        embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
+        embed.add_field(name="Zapisani:", value="\n".join(signups) or "Brak", inline=False)
+
+        if bot.panel_message:
+            await bot.panel_message.edit(embed=embed, view=PanelView())
+            return
         )
 
 
@@ -301,21 +292,20 @@ async def lista(ctx):
 
 @bot.command()
 async def panel(ctx):
-    print("[DEBUG] Wywołano !panel")
-    view = PanelView(ctx)
-    embed = generuj_embed_panel("📋 Lista graczy (Panel)")
+    embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
+    embed.add_field(name="Zapisani:", value="\n".join(signups) or "Brak", inline=False)
+
+    view = PanelView()
 
     if bot.panel_message:
         try:
-            print("[DEBUG] Edytuję istniejący panel")
             await bot.panel_message.edit(embed=embed, view=view)
             return
         except discord.NotFound:
-            print("[DEBUG] Poprzedni panel nie istnieje")
             bot.panel_message = None
 
     bot.panel_message = await ctx.send(embed=embed, view=view)
-    print("[DEBUG] Zapisano bot.panel_message:", bot.panel_message)
+    print("[DEBUG] panel_message zapisany:", bot.panel_message)
 
 
 
@@ -552,14 +542,9 @@ class ZmienGodzineButton(discord.ui.Button):
 
 
 class PanelView(discord.ui.View):
-    def __init__(self, ctx):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.ctx = ctx
-
         self.add_item(ZapiszButton())
-        self.add_item(WypiszButton())
-        self.add_item(RezerwowyButton())
-        self.add_item(ZmienGodzineButton())
 
 
 
