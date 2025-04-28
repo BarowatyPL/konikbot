@@ -378,11 +378,13 @@ class ZapiszButton(discord.ui.Button):
         super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.defer()  # ✅ nie wysyła nowej wiadomości
+
         nick = interaction.user.display_name
         user_id = interaction.user.id
 
         if nick in signups or nick in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany.", ephemeral=False, delete_after=10)
+            await interaction.followup.send("Już jesteś zapisany.", ephemeral=False, delete_after=10)
             return
 
         if len(signups) < MAX_SIGNUPS:
@@ -398,15 +400,11 @@ class ZapiszButton(discord.ui.Button):
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
 
-        print("[DEBUG] Z panelu: bot.panel_message =", bot.panel_message)
-
         if bot.panel_message:
             await bot.panel_message.edit(
                 embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
                 view=PanelView(ctx)
             )
-
-
 
 
 
