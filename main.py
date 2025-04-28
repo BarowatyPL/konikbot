@@ -165,13 +165,13 @@ class SignupPanel(discord.ui.View):
         await interaction.response.defer()
 
 
-    @bot.command()
-    async def panel(ctx):
-        """Pokazuje panel zapisów z przyciskami."""
-        embed = generate_embed()
-        view = SignupPanel()
-        message = await ctx.send(embed=embed, view=view)
-        view.message = message  # przypisz wiadomość do edytowania później
+@bot.command()
+async def panel(ctx):
+    """Pokazuje panel zapisów z przyciskami."""
+    embed = generate_embed()
+    view = SignupPanel()
+    message = await ctx.send(embed=embed, view=view)
+    view.message = message  # przypisz wiadomość do edytowania później
 
 
 
