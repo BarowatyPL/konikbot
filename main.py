@@ -165,7 +165,7 @@ class SignupPanel(discord.ui.View):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=5)
             return
-        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True)
+        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=5)
 
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
