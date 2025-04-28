@@ -363,17 +363,9 @@ class UsunButton(discord.ui.Button):
         ctx.author = interaction.user
 
         if bot.panel_message:
-            await bot.panel_message.edit(
-                embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
-                view=PanelView(ctx)
-            )
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
 
-        await interaction.response.send_message(
-            f"🗑️ Usunięto {self.nick} z listy!", ephemeral=False, delete_after=10
-        )
-
-
-
+        await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=False, delete_after=10)
 
 
 
@@ -407,6 +399,7 @@ class ZapiszButton(discord.ui.Button):
 
 
 
+
 class WypiszButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="❌ Wypisz się", style=discord.ButtonStyle.danger)
@@ -423,18 +416,15 @@ class WypiszButton(discord.ui.Button):
             removed = True
 
         aktualizuj_listy()
-
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
 
         if bot.panel_message:
-            await bot.panel_message.edit(
-                embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
-                view=PanelView(ctx)
-            )
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
 
         if not removed:
             await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=False, delete_after=10)
+
 
 
 
@@ -475,10 +465,13 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
 
         log_entry(self.nick, "Przeniesiono do rezerwowej")
         aktualizuj_listy()
+
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
+
         if bot.panel_message:
             await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+
 
 
 
@@ -499,10 +492,13 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
 
         log_entry(self.nick, "Przeniesiono do głównej")
         aktualizuj_listy()
+
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
+
         if bot.panel_message:
             await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+
 
 
 
@@ -519,6 +515,7 @@ class ZmienGodzineButton(discord.ui.Button):
 
         try:
             msg = await bot.wait_for("message", check=check, timeout=30)
+
             godzina = msg.content.strip()
             godz, minuty = map(int, godzina.split(":"))
             global event_time
@@ -535,15 +532,12 @@ class ZmienGodzineButton(discord.ui.Button):
             ctx = await bot.get_context(msg)
             ctx.author = interaction.user
 
-            # ✅ edytuj wiadomość panelową
             if bot.panel_message:
-                await bot.panel_message.edit(
-                    embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
-                    view=PanelView(ctx)
-                )
+                await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
 
         except Exception:
             await interaction.followup.send("❌ Nie udało się ustawić godziny. Format HH:MM.", delete_after=10)
+
 
 
 
