@@ -157,7 +157,7 @@ class SignupPanel(discord.ui.View):
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
         except ValueError:
             await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True)
-            await log_to_discord(f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
+        await log_to_discord(f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
 
 
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
@@ -190,7 +190,7 @@ class SignupPanel(discord.ui.View):
             await self.update_message(interaction)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
-            await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
+        await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
 
 
     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
@@ -221,7 +221,7 @@ class SignupPanel(discord.ui.View):
                 await interaction.followup.send("Tego użytkownika nie ma na liście rezerwowej.", ephemeral=True)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
-            await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
+        await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
 
 
     @discord.ui.button(label="🧹 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
