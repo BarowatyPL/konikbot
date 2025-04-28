@@ -397,29 +397,35 @@ class ZapiszButton(discord.ui.Button):
             )
 
 
-
-
 class WypiszButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="❌ Wypisz się", style=discord.ButtonStyle.danger)
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.defer()
+
         nick = interaction.user.display_name
+        removed = False
 
         if nick in signups:
             signups.remove(nick)
+            removed = True
         elif nick in waiting_list:
             waiting_list.remove(nick)
-        else:
-            await interaction.followup.send("Nie jesteś zapisany.", delete_after=5)
-            return
+            removed = True
 
         embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
-        embed.add_field(name="Zapisani:", value="\n".join(signups) or "Brak", inline=False)
+        value = "\n".join(signups) or "Brak"
+        rezerwowi = "\n".join(waiting_list) or "Brak"
+        embed.add_field(name="Zapisani:", value=value, inline=False)
+        embed.add_field(name="Rezerwowi:", value=rezerwowi, inline=False)
 
         if bot.panel_message:
             await bot.panel_message.edit(embed=embed, view=PanelView())
+
+        if not removed:
+            await interaction.followup.send("Nie jesteś zapisany.", delete_after=5)
+
 
 
 class RezerwowyButton(discord.ui.Button):
