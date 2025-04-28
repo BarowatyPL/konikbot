@@ -404,29 +404,22 @@ class WypiszButton(discord.ui.Button):
         super().__init__(label="❌ Wypisz się", style=discord.ButtonStyle.danger)
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.defer()
         nick = interaction.user.display_name
-        removed = False
 
         if nick in signups:
             signups.remove(nick)
-            removed = True
         elif nick in waiting_list:
             waiting_list.remove(nick)
-            removed = True
+        else:
+            await interaction.followup.send("Nie jesteś zapisany.", delete_after=5)
+            return
 
-        aktualizuj_listy()
-        ctx = await bot.get_context(interaction.message)
-        ctx.author = interaction.user
+        embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
+        embed.add_field(name="Zapisani:", value="\n".join(signups) or "Brak", inline=False)
 
         if bot.panel_message:
-            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
-
-        if not removed:
-            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=False, delete_after=10)
-
-
-
-
+            await bot.panel_message.edit(embed=embed, view=PanelView())
 
 
 class RezerwowyButton(discord.ui.Button):
@@ -434,18 +427,25 @@ class RezerwowyButton(discord.ui.Button):
         super().__init__(label="🕒 Do rezerwowej", style=discord.ButtonStyle.secondary)
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.defer()
         nick = interaction.user.display_name
 
         if nick in signups or nick in waiting_list:
-            await interaction.response.send_message("Już jesteś na liście.", ephemeral=False, delete_after=10)
+            await interaction.followup.send("Już jesteś zapisany.", delete_after=5)
             return
 
         waiting_list.append(nick)
-        log_entry(nick, "Dodano do rezerwowej przez przycisk")
-        aktualizuj_listy()
-        ctx = await bot.get_context(interaction.message)
-        ctx.author = interaction.user
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+
+        embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
+        value = "\n".join(signups) or "Brak"
+        rezerwowi = "\n".join(waiting_list) or "Brak"
+
+        embed.add_field(name="Zapisani:", value=value, inline=False)
+        embed.add_field(name="Rezerwowi:", value=rezerwowi, inline=False)
+
+        if bot.panel_message:
+            await bot.panel_message.edit(embed=embed, view=PanelView())
+
 
 
 
@@ -507,35 +507,34 @@ class ZmienGodzineButton(discord.ui.Button):
         super().__init__(label="⏰ Zmień godzinę", style=discord.ButtonStyle.blurple)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", ephemeral=False, delete_after=10)
+        await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", delete_after=10)
 
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
 
         try:
             msg = await bot.wait_for("message", check=check, timeout=30)
-
             godzina = msg.content.strip()
             godz, minuty = map(int, godzina.split(":"))
             global event_time
             event_time = time(hour=godz, minute=minuty)
 
             await msg.delete(delay=10)
+            await interaction.followup.send(f"✅ Ustawiono: **{event_time.strftime('%H:%M')}**", delete_after=5)
 
-            await interaction.followup.send(
-                f"✅ Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**",
-                delete_after=10
-            )
-
-            aktualizuj_listy()
-            ctx = await bot.get_context(msg)
-            ctx.author = interaction.user
+            embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
+            value = "\n".join(signups) or "Brak"
+            rezerwowi = "\n".join(waiting_list) or "Brak"
+            embed.add_field(name="Zapisani:", value=value, inline=False)
+            embed.add_field(name="Rezerwowi:", value=rezerwowi, inline=False)
+            embed.set_footer(text=f"Czas rozpoczęcia: {event_time.strftime('%H:%M')}")
 
             if bot.panel_message:
-                await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+                await bot.panel_message.edit(embed=embed, view=PanelView())
 
         except Exception:
-            await interaction.followup.send("❌ Nie udało się ustawić godziny. Format HH:MM.", delete_after=10)
+            await interaction.followup.send("❌ Błąd formatu. Użyj HH:MM", delete_after=5)
+
 
 
 
@@ -545,6 +544,10 @@ class PanelView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(ZapiszButton())
+        self.add_item(WypiszButton())
+        self.add_item(RezerwowyButton())
+        self.add_item(ZmienGodzineButton())
+
 
 
 
