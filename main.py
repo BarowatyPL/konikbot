@@ -402,7 +402,8 @@ class WypiszButton(discord.ui.Button):
         super().__init__(label="❌ Wypisz się", style=discord.ButtonStyle.danger)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.defer()
+        # ✅ Powiedz Discordowi, że obsługujesz kliknięcie, ale nic nie wysyłasz teraz
+        await interaction.response.defer()
 
         nick = interaction.user.display_name
         removed = False
@@ -414,17 +415,23 @@ class WypiszButton(discord.ui.Button):
             waiting_list.remove(nick)
             removed = True
 
+        aktualizuj_listy()
+
+        # 🧠 Przygotuj embed do aktualizacji panelu
         embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
         value = "\n".join(signups) or "Brak"
         rezerwowi = "\n".join(waiting_list) or "Brak"
         embed.add_field(name="Zapisani:", value=value, inline=False)
         embed.add_field(name="Rezerwowi:", value=rezerwowi, inline=False)
 
+        # ✅ Edytuj panel — NIE wysyłaj nowej wiadomości
         if bot.panel_message:
             await bot.panel_message.edit(embed=embed, view=PanelView())
 
+        # ❗ Opcjonalnie wyślij followup tylko jeśli był błąd
         if not removed:
             await interaction.followup.send("Nie jesteś zapisany.", delete_after=5)
+
 
 
 
