@@ -313,6 +313,7 @@ class SignupPanel(discord.ui.View):
 
 
 @bot.command()
+@commands.has_permissions(administrator=True)
 async def panel(ctx):
     """Pokazuje panel zapisów z przyciskami."""
     global panel_channel
