@@ -36,6 +36,7 @@ intents.message_content = True
 intents.members = True  # <- DODAJ TO TUTAJ
 
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
+bot.panel_message = None
 
 # Dane
 MAX_SIGNUPS = 10
