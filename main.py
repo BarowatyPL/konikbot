@@ -225,6 +225,45 @@ class SignupPanel(discord.ui.View):
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
         await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
 
+    @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
+    async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Tylko administrator może dodawać graczy.", ephemeral=True, delete_after=5)
+            return
+    
+        await interaction.response.send_message("Podaj @użytkownika do dodania na listę:", ephemeral=True, delete_after=10)
+    
+        def check(msg):
+            return msg.author == interaction.user and msg.channel == interaction.channel
+    
+        try:
+            msg = await bot.wait_for("message", timeout=30.0, check=check)
+            if not msg.mentions:
+                await interaction.followup.send("Musisz oznaczyć użytkownika (@).", ephemeral=True, delete_after=5)
+                return
+    
+            user = msg.mentions[0]
+    
+            if user in signups or user in waiting_list:
+                await interaction.followup.send("Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
+                return
+    
+            if len(signups) < MAX_SIGNUPS:
+                signups.append(user)
+                await interaction.followup.send(f"{user.mention} został dodany do listy głównej.", ephemeral=True, delete_after=5)
+                await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy głównej.")
+            else:
+                waiting_list.append(user)
+                await interaction.followup.send(f"{user.mention} został dodany do listy rezerwowej.", ephemeral=True, delete_after=5)
+                await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy rezerwowej.")
+    
+            await msg.delete()
+            await self.update_message(interaction)
+    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+
+
 
     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
     async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -322,6 +361,15 @@ async def lista(ctx):
     embed = generate_embed()
     await ctx.send(embed=embed)
 
+# ---------- KOMENDY DLA BEKI ---------- #
+
+@bot.command(name="ksante")
+async def ksante(ctx):
+    tekst = ("K'Sante👤 4,700 HP 💪 329 Armor 🤷‍♂️ 201 MR 💦 Unstoppable 🚫 "
+             "A Shield 🛡 Goes over walls 🧱 Has Airborne 🌪 "
+             "Cooldown is only ☝ second too 🕐 It costs 15 Mana 🧙‍♂️")
+    
+    await ctx.send(tekst, delete_after=300)
 
 
 # ---------- LOGI ---------- #
