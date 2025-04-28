@@ -232,7 +232,7 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Lista główna jest pusta.", ephemeral=True, delete_after=5)
             return
         mentions = " ".join(user.mention for user in signups)
-        await interaction.response.send_message(f"Pinguję listę główną:\n{mentions}")
+        await interaction.response.send_message(f"Pinguję listę główną:\n{mentions}", delete_after=300)
 
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -243,7 +243,7 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True, delete_after=5)
             return
         mentions = " ".join(user.mention for user in waiting_list)
-        await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}")
+        await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}", delete_after=300)
 
     async def update_message(self, interaction: discord.Interaction):
         embed = generate_embed()
