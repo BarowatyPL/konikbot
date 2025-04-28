@@ -292,9 +292,7 @@ async def lista(ctx):
 
 @bot.command()
 async def panel(ctx):
-    embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.green())
-    embed.add_field(name="Zapisani:", value="\n".join(signups) or "Brak", inline=False)
-
+    embed = generuj_embed_panel("📋 Lista graczy (Panel)")
     view = PanelView()
 
     if bot.panel_message:
@@ -305,7 +303,7 @@ async def panel(ctx):
             bot.panel_message = None
 
     bot.panel_message = await ctx.send(embed=embed, view=view)
-    print("[DEBUG] panel_message zapisany:", bot.panel_message)
+
 
 
 
@@ -558,6 +556,7 @@ class PanelView(discord.ui.View):
         self.add_item(WypiszButton())
         self.add_item(RezerwowyButton())
         self.add_item(ZmienGodzineButton())
+
 
 
 
