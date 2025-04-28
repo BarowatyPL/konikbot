@@ -243,7 +243,6 @@ async def usun(ctx, *, user):
         await ctx.send(f'{user} nie znajduje się na liście.')
 
 @bot.command()
-@bot.command()
 async def lista(ctx):
     zapisani_display = signups[:MAX_SIGNUPS]
     rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
