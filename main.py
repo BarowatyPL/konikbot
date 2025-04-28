@@ -51,6 +51,8 @@ bot.mvp_vote_messages = []
 bot.last_teams = {}
 bot.zwyciezca = None
 signup_ids = []
+reminder_sent = False
+
 
 wczytaj_dane()
 
@@ -58,6 +60,34 @@ wczytaj_dane()
 async def on_ready():
     print(f'Zalogowano jako {bot.user.name}')
     check_event_time.start()
+
+@tasks.loop(seconds=60)
+async def check_event_time():
+    global event_time, reminder_sent
+
+    if event_time is None or reminder_sent:
+        return
+
+    now = datetime.now()
+    diff = event_time - now
+
+    if timedelta(minutes=14) < diff <= timedelta(minutes=15):  # sprawdzamy dokładnie tę minutę
+        reminder_sent = True
+
+        log_channel_id = 1366403342695141446  # ← możesz zmienić na dowolny kanał
+        channel = bot.get_channel(log_channel_id)
+
+        if not channel:
+            print("Nie mogę znaleźć kanału do przypomnienia.")
+            return
+
+        if signups:
+            mentions = " ".join(user.mention for user in signups)
+            await channel.send(f"⏰ **Przypomnienie!** Wydarzenie za 15 minut!\n{mentions}")
+            await log_to_discord("📣 Bot wysłał przypomnienie 15 minut przed wydarzeniem.")
+        else:
+            await channel.send("⏰ Wydarzenie za 15 minut, ale lista główna jest pusta.")
+
 
 # ---------- SYSTEM ZAPISÓW ---------- #
 
