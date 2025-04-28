@@ -360,7 +360,10 @@ class UsunButton(discord.ui.Button):
         aktualizuj_listy()
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+        if bot.panel_message:
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+        await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=False, delete_after=10)
+
 
 
 
@@ -374,7 +377,7 @@ class ZapiszButton(discord.ui.Button):
         user_id = interaction.user.id
 
         if nick in signups or nick in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany.", ephemeral=True)
+            await interaction.response.send_message("Już jesteś zapisany.", ephemeral=False, delete_after=10)
             return
 
         if len(signups) < MAX_SIGNUPS:
@@ -389,7 +392,9 @@ class ZapiszButton(discord.ui.Button):
         aktualizuj_listy()
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+        if bot.panel_message:
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+
 
 
 
@@ -413,9 +418,11 @@ class WypiszButton(discord.ui.Button):
             aktualizuj_listy()
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
-            await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+            if bot.panel_message:
+                await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
         else:
-            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True)
+            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=False, delete_after=10)
+
 
 
 
@@ -427,7 +434,7 @@ class RezerwowyButton(discord.ui.Button):
         nick = interaction.user.display_name
 
         if nick in signups or nick in waiting_list:
-            await interaction.response.send_message("Już jesteś na liście.", ephemeral=True)
+            await interaction.response.send_message("Już jesteś na liście.", ephemeral=False, delete_after=10)
             return
 
         waiting_list.append(nick)
@@ -453,7 +460,9 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
         aktualizuj_listy()
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+        if bot.panel_message:
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+
 
 
 
@@ -471,7 +480,9 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
         aktualizuj_listy()
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
-        await interaction.response.edit_message(embed=generuj_embed_panel(), view=PanelView(ctx))
+        if bot.panel_message:
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+
 
 
 class ZmienGodzineButton(discord.ui.Button):
@@ -479,7 +490,7 @@ class ZmienGodzineButton(discord.ui.Button):
         super().__init__(label="⏰ Zmień godzinę", style=discord.ButtonStyle.blurple)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", ephemeral=True)
+        msg_prompt = await interaction.response.send_message("Podaj nową godzinę w formacie HH:MM", ephemeral=False, delete_after=10)
 
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
@@ -490,16 +501,18 @@ class ZmienGodzineButton(discord.ui.Button):
             godz, minuty = map(int, godzina.split(":"))
             global event_time
             event_time = time(hour=godz, minute=minuty)
-            await interaction.followup.send(f"✅ Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", ephemeral=True)
+            await msg.delete(delay=10)
+            await interaction.followup.send(f"✅ Ustawiono nową godzinę: **{event_time.strftime('%H:%M')}**", delete_after=10)
 
-            # 🔁 aktualizacja wiadomości
             aktualizuj_listy()
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
-            await interaction.message.edit(embed=generuj_embed_panel(), view=PanelView(ctx))
+            if bot.panel_message:
+                await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
 
         except Exception:
-            await interaction.followup.send("❌ Nie udało się ustawić godziny. Format HH:MM.", ephemeral=True)
+            await interaction.followup.send("❌ Nie udało się ustawić godziny. Format HH:MM.", delete_after=10)
+
 
 class PanelView(discord.ui.View):
     def __init__(self, ctx):
