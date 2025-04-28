@@ -96,7 +96,7 @@ class SignupPanel(discord.ui.View):
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         if user in signups or user in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5))
+            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
             return
         if len(signups) < MAX_SIGNUPS:
             signups.append(user)
