@@ -66,7 +66,6 @@ event_time = None  # dodane globalnie
 def generate_embed():
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
-    # czas wydarzenia (jeśli ustawiony)
     if event_time:
         embed.description = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
     else:
@@ -103,6 +102,8 @@ class SignupPanel(discord.ui.View):
         else:
             waiting_list.append(user)
         await self.update_message(interaction)
+        await log_to_discord(f"👤 {interaction.user.mention} zapisał się na listę {'główną' if len(signups) <= MAX_SIGNUPS else 'rezerwową'}.")
+
 
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -118,6 +119,8 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True, delete_after=5)
             return
         await self.update_message(interaction)
+        await log_to_discord(f"👤 {interaction.user.mention} wypisał się z listy.")
+
 
     @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary)
     async def reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -127,6 +130,8 @@ class SignupPanel(discord.ui.View):
             return
         waiting_list.append(user)
         await self.update_message(interaction)
+        await log_to_discord(f"👤 {interaction.user.mention} zapisał się na listę rezerwową (ręcznie).")
+
 
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -152,6 +157,8 @@ class SignupPanel(discord.ui.View):
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
         except ValueError:
             await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True)
+            await log_to_discord(f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
+
 
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
     async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -183,6 +190,8 @@ class SignupPanel(discord.ui.View):
             await self.update_message(interaction)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
+            await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
+
 
     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
     async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -212,6 +221,8 @@ class SignupPanel(discord.ui.View):
                 await interaction.followup.send("Tego użytkownika nie ma na liście rezerwowej.", ephemeral=True)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
+            await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
+
 
     @discord.ui.button(label="🧹 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
     async def clear_lists(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -222,6 +233,8 @@ class SignupPanel(discord.ui.View):
         waiting_list.clear()
         await interaction.response.send_message("Listy zostały wyczyszczone.", ephemeral=True, delete_after=5)
         await self.update_message(interaction)
+        await log_to_discord(f"👤 {interaction.user.mention} wyczyścił obie listy.")
+
 
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
     async def ping_main(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -233,6 +246,8 @@ class SignupPanel(discord.ui.View):
             return
         mentions = " ".join(user.mention for user in signups)
         await interaction.response.send_message(f"Pinguję listę główną:\n{mentions}", delete_after=300)
+        await log_to_discord(f"👤 {interaction.user.mention} pingnął listę główną.")
+
 
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -244,6 +259,8 @@ class SignupPanel(discord.ui.View):
             return
         mentions = " ".join(user.mention for user in waiting_list)
         await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}", delete_after=300)
+        await log_to_discord(f"👤 {interaction.user.mention} pingnął listę rezerwową.")
+
 
     async def update_message(self, interaction: discord.Interaction):
         embed = generate_embed()
@@ -259,10 +276,38 @@ async def panel(ctx):
     embed = generate_embed()
     view = SignupPanel()
     message = await ctx.send(embed=embed, view=view)
-    view.message = message  # przypisz wiadomość do edytowania później
+    view.message = message
 
 
 
+# ---------- LOGI ---------- #
+
+async def log_to_discord(message: str):
+    log_channel_id = 1366403342695141446
+    channel = bot.get_channel(log_channel_id)
+    if channel:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        await channel.send(f"[{timestamp}] {message}")
+
+@bot.command(name="pokaż_logi")
+@commands.has_permissions(administrator=True)
+async def logi(ctx, liczba: int = 10):
+    """Pokazuje ostatnie X logów z kanału logów (domyślnie 10)."""
+    log_channel_id = 1366403342695141446
+    channel = bot.get_channel(log_channel_id)
+
+    if not channel:
+        await ctx.send("❌ Nie mogę znaleźć kanału logów.")
+        return
+
+    messages = [msg async for msg in channel.history(limit=liczba)]
+    messages.reverse()
+
+    formatted = "\n".join(msg.content for msg in messages)
+    if not formatted:
+        formatted = "Brak logów do wyświetlenia."
+
+    await ctx.send(f"📄 **Ostatnie {liczba} logów:**\n```{formatted}```")
 
 
 
