@@ -11,6 +11,7 @@ from threading import Thread
 from elo_mvp_system import przetworz_mecz, ranking, profil, wczytaj_dane, zapisz_dane, PUNKTY_ELO, przewidywana_szansa
 from collections import Counter
 
+
 # Flask do keep-alive
 app = Flask('')
 
@@ -53,6 +54,8 @@ bot.zwyciezca = None
 signup_ids = []
 reminder_sent = False
 panel_channel = None
+ranking_mode = False
+
 
 
 
@@ -97,23 +100,21 @@ def generate_embed():
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
     if event_time:
-        embed.description = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
+        czas_wydarzenia = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
     else:
-        embed.description = "🕒 **Czas wydarzenia nie został jeszcze ustawiony.**"
+        czas_wydarzenia = "🕒 **Czas wydarzenia nie został jeszcze ustawiony.**"
 
-    if signups:
-        signup_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(signups))
-    else:
-        signup_str = "Brak"
+    ranking_info = "🏆 **Rankingowa**" if ranking_mode else "🎮 **Nierankingowa**"
 
-    if waiting_list:
-        reserve_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(waiting_list))
-    else:
-        reserve_str = "Brak"
+    embed.description = f"{czas_wydarzenia}\n{ranking_info}"
+
+    signup_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(signups)) if signups else "Brak"
+    reserve_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(waiting_list)) if waiting_list else "Brak"
 
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
     return embed
+
 
 
 class SignupPanel(discord.ui.View):
@@ -294,6 +295,7 @@ class SignupPanel(discord.ui.View):
         await interaction.response.send_message(f"Pinguję listę główną:\n{mentions}", delete_after=300)
         await log_to_discord(f"👤 {interaction.user.mention} pingnął listę główną.")
 
+    
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
@@ -310,6 +312,24 @@ class SignupPanel(discord.ui.View):
         embed = generate_embed()
         await self.message.edit(embed=embed, view=self)
         await interaction.response.defer()
+
+    @discord.ui.button(label="🎯 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
+    async def toggle_ranking(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Tylko administrator może zmieniać tryb gry.", ephemeral=True, delete_after=5)
+            return
+    
+        global ranking_mode
+        ranking_mode = not ranking_mode
+    
+        await self.update_message(interaction)
+    
+        await interaction.response.send_message(
+            f"✅ Tryb gry zmieniony na: {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}", ephemeral=True, delete_after=5
+        )
+    
+        await log_to_discord(f"👤 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}.")
+
 
 
 @bot.command()
