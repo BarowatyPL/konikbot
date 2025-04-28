@@ -84,12 +84,12 @@ async def check_event_time():
         
         if signups:
             mentions = " ".join(user.mention for user in signups)
-            await channel.send(f"⏰ **Przypomnienie!** Wydarzenie za 15 minut!\n{mentions}")
+            await channel.send(f"⏰ **Przypomnienie!** Customy za 15 minut!\n{mentions}")
         else:
-            await channel.send("⏰ Wydarzenie za 15 minut, ale lista główna jest pusta.")
+            await channel.send("⏰ Customy za 15 minut, ale lista główna jest pusta.")
 
 
-# ---------- SYSTEM ZAPISÓW ---------- #
+# ---------- SYSTEM ZAPISÓW I WYŚWIETLANIA ---------- #
 
 event_time = None  # dodane globalnie
 
@@ -168,7 +168,7 @@ class SignupPanel(discord.ui.View):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=5)
             return
-        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True)
+        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM` (np. 20:15):", ephemeral=True, delete_after=5)
     
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
@@ -315,6 +315,12 @@ async def panel(ctx):
     view.message = message
 
 
+@bot.command(name="lista")
+@commands.has_permissions(administrator=True)
+async def lista(ctx):
+    """Wyświetla listę zapisanych bez przycisków (tylko dla admina)."""
+    embed = generate_embed()
+    await ctx.send(embed=embed)
 
 
 
