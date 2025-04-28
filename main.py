@@ -175,9 +175,11 @@ async def wolam(ctx):
 async def zapisz(ctx):
     user = ctx.author.display_name
     user_id = ctx.author.id
+
     if user in signups or user in waiting_list:
         await ctx.send(f'{user}, jesteś już zapisany.')
         return
+
     if len(signups) < MAX_SIGNUPS:
         signups.append(user)
         if user_id not in signup_ids:
@@ -189,6 +191,17 @@ async def zapisz(ctx):
         waiting_list.append(user)
         log_entry(user, 'Lista rezerwowa')
         await ctx.send(f'{user}, dodano do listy rezerwowej.')
+
+    # 🔁 Odśwież panel jeśli istnieje
+    aktualizuj_listy()
+    if bot.panel_message:
+        panel_ctx = await bot.get_context(ctx.message)
+        panel_ctx.author = ctx.author
+        await bot.panel_message.edit(
+            embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+            view=PanelView(panel_ctx)
+        )
+
 
 @bot.command()
 async def wypisz(ctx):
@@ -206,7 +219,13 @@ async def wypisz(ctx):
     else:
         await ctx.send(f'{user}, nie jesteś zapisany.')
 
-
+    if bot.panel_message:
+        panel_ctx = await bot.get_context(ctx.message)
+        panel_ctx.author = ctx.author
+        await bot.panel_message.edit(
+            embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+            view=PanelView(panel_ctx)
+        )
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -219,6 +238,14 @@ async def dodaj(ctx, *, user):
         aktualizuj_listy()
         await ctx.send(f'✅ Dodano {user} do zapisów.')
 
+        if bot.panel_message:
+            panel_ctx = await bot.get_context(ctx.message)
+            panel_ctx.author = ctx.author
+            await bot.panel_message.edit(
+                embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+                view=PanelView(panel_ctx)
+            )
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -230,6 +257,13 @@ async def wyczysc(ctx):
     log_entry(str(ctx.author), 'Wyczyszczono listy zapisów')
     await ctx.send("🧹 Lista zapisów i rezerwowa została całkowicie wyczyszczona.")
 
+    if bot.panel_message:
+        panel_ctx = await bot.get_context(ctx.message)
+        panel_ctx.author = ctx.author
+        await bot.panel_message.edit(
+            embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+            view=PanelView(panel_ctx)
+        )
 
 
 @bot.command()
@@ -248,46 +282,37 @@ async def usun(ctx, *, user):
     else:
         await ctx.send(f'{user} nie znajduje się na liście.')
 
+    if bot.panel_message:
+        panel_ctx = await bot.get_context(ctx.message)
+        panel_ctx.author = ctx.author
+        await bot.panel_message.edit(
+            embed=generuj_embed_panel("📋 Lista graczy (Panel)"),
+            view=PanelView(panel_ctx)
+        )
+
+
 
 @bot.command()
 async def lista(ctx):
-    embed = generuj_embed_panel()
+    embed = generuj_embed_panel("📋 Lista graczy")
     await ctx.send(embed=embed)
 
-
-    zapisani_display = signups[:MAX_SIGNUPS]
-    rezerwowi_display = signups[MAX_SIGNUPS:] + waiting_list
-
-    embed = discord.Embed(title="📋 Lista graczy", color=discord.Color.teal())
-    czas_info = event_time.strftime('%H:%M') if event_time else "Nieokreślono"
-    embed.set_footer(text=f"Czas rozpoczęcia: {czas_info}")
-
-    if zapisani_display:
-        embed.add_field(
-            name="✅ Gracze zapisani (do 10)",
-            value="\n".join(f"{i+1}. {name}" for i, name in enumerate(zapisani_display)),
-            inline=False
-        )
-    else:
-        embed.add_field(name="✅ Gracze zapisani (do 10)", value="Brak zapisanych graczy", inline=False)
-
-    if rezerwowi_display:
-        embed.add_field(
-            name="🕒 Lista rezerwowa",
-            value="\n".join(f"- {name}" for name in rezerwowi_display),
-            inline=False
-        )
-
-    # Dodaj przyciski tylko jeśli użytkownik to administrator
-    view = ListaView(zapisani_display) if ctx.author.guild_permissions.administrator else None
-    await ctx.send(embed=embed, view=view)
 
 @bot.command()
 async def panel(ctx):
     print("[DEBUG] Wywołano !panel")
     view = PanelView(ctx)
-    embed = generuj_embed_panel()
-    await ctx.send(embed=embed, view=view)
+    embed = generuj_embed_panel("📋 Lista graczy (Panel)")
+
+    if bot.panel_message:
+        try:
+            await bot.panel_message.edit(embed=embed, view=view)
+            return
+        except discord.NotFound:
+            bot.panel_message = None
+
+    bot.panel_message = await ctx.send(embed=embed, view=view)
+
 
 
 
