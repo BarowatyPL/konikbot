@@ -172,6 +172,7 @@ async def wolam(ctx):
         await ctx.send("⚠️ Nie udało się dopasować żadnych graczy z listy.")
 
 
+
 class ZapiszButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="✅ Zapisz się", style=discord.ButtonStyle.success)
@@ -192,7 +193,6 @@ class ZapiszButton(discord.ui.Button):
         if bot.panel_message:
             await bot.panel_message.edit(embed=embed, view=PanelView())
             return
-        )
 
 
 @bot.command()
