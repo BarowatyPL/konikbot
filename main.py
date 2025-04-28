@@ -388,7 +388,7 @@ class UsunButton(discord.ui.Button):
         ctx.author = interaction.user
 
         if bot.panel_message:
-            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView())
 
         await interaction.response.send_message(f"🗑️ Usunięto {self.nick} z listy!", ephemeral=False, delete_after=10)
 
@@ -480,7 +480,7 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
         ctx.author = interaction.user
 
         if bot.panel_message:
-            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView())
 
 
 
@@ -507,7 +507,7 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
         ctx.author = interaction.user
 
         if bot.panel_message:
-            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView(ctx))
+            await bot.panel_message.edit(embed=generuj_embed_panel("📋 Lista graczy (Panel)"), view=PanelView())
 
 
 
@@ -558,6 +558,7 @@ class PanelView(discord.ui.View):
         self.add_item(WypiszButton())
         self.add_item(RezerwowyButton())
         self.add_item(ZmienGodzineButton())
+
 
 
 
@@ -734,7 +735,7 @@ class ZapiszButton(discord.ui.Button):
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
         await interaction.message.delete()
-        await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+        await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView())
 
 
 class WypiszButton(discord.ui.Button):
@@ -758,7 +759,7 @@ class WypiszButton(discord.ui.Button):
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
             await interaction.message.delete()
-            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView())
         else:
             await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True)
 
@@ -785,7 +786,7 @@ class RezerwowyButton(discord.ui.Button):
         ctx = await bot.get_context(interaction.message)
         ctx.author = interaction.user
         await interaction.message.delete()
-        await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+        await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView())
 
 
 
@@ -803,7 +804,7 @@ class PrzeniesDoRezerwowejButton(discord.ui.Button):
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
             await interaction.message.delete()
-            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView())
         else:
             await interaction.response.send_message("Gracz nie jest w głównej liście.", ephemeral=True)
 
@@ -822,7 +823,7 @@ class PrzeniesDoGlownejButton(discord.ui.Button):
             ctx = await bot.get_context(interaction.message)
             ctx.author = interaction.user
             await interaction.message.delete()
-            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView(ctx))
+            await interaction.channel.send(embed=generuj_embed_panel(), view=PanelView())
         else:
             await interaction.response.send_message(
                 "Nie można przenieść (lista pełna lub gracz nie jest w rezerwowej).",
