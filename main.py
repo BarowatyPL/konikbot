@@ -80,28 +80,31 @@ async def on_ready():
 
 @tasks.loop(seconds=60)
 async def check_event_time():
-    global event_time, reminder_sent
+    global event_time, reminder_sent, tematyczne_event_time, tematyczne_reminder_sent
 
-    if event_time is None or reminder_sent:
-        return
+    now = datetime.now() + timedelta(hours=2)  # Dopasowanie do CEST
 
-    now = datetime.now() + timedelta(hours=2)  # ← kompensacja UTC → CEST
+    # GŁÓWNA lista
+    if event_time and not reminder_sent:
+        diff = event_time - now
+        if timedelta(minutes=14) < diff <= timedelta(minutes=15):
+            reminder_sent = True
+            if signups:
+                mentions = " ".join(user.mention for user in signups)
+                await panel_channel.send(f"⏰ **Przypomnienie!** Customy za 15 minut!\n{mentions}")
+            else:
+                await panel_channel.send("⏰ Customy za 15 minut, ale lista główna jest pusta.")
 
-    diff = event_time - now
-
-    if timedelta(minutes=14) < diff <= timedelta(minutes=15):
-        reminder_sent = True
-
-        channel = panel_channel
-        if not channel:
-            print("❌ Nie znaleziono kanału panelu do przypomnienia.")
-            return
-        
-        if signups:
-            mentions = " ".join(user.mention for user in signups)
-            await channel.send(f"⏰ **Przypomnienie!** Customy za 15 minut!\n{mentions}")
-        else:
-            await channel.send("⏰ Customy za 15 minut, ale lista główna jest pusta.")
+    # TEMATYCZNA lista
+    if tematyczne_event_time and not tematyczne_reminder_sent:
+        diff = tematyczne_event_time - now
+        if timedelta(minutes=14) < diff <= timedelta(minutes=15):
+            tematyczne_reminder_sent = True
+            if tematyczne_gracze:
+                mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
+                await panel_channel.send(f"⏰ **Tematyczne przypomnienie!** Start za 15 minut!\n{mentions}")
+            else:
+                await panel_channel.send("⏰ Tematyczne: Brak zapisanych graczy.")
 
 async def create_tables():
     await db.execute('''
@@ -533,7 +536,7 @@ class TematycznePanel(discord.ui.View):
         if not tematyczne_gracze:
             return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True, delete_after=10)
         mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
-        await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=10)
+        await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=300)
 
     @discord.ui.button(label="✏️ Zmień nazwę serii", style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -552,6 +555,49 @@ class TematycznePanel(discord.ui.View):
             await interaction.followup.send(f"✅ Nazwa serii ustawiona na: {tematyczne_nazwa}", ephemeral=True, delete_after=10)
         except asyncio.TimeoutError:
             await interaction.followup.send("⏰ Czas minął. Nie zmieniono nazwy.", ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.secondary)
+    async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może dodawać graczy.", ephemeral=True, delete_after=10)
+    
+        await interaction.response.send_message("Podaj `@nick` gracza oraz linie (np. top, mid):", ephemeral=True, delete_after=10)
+    
+        def check(m): return m.author == interaction.user and m.channel == interaction.channel
+        try:
+            msg = await bot.wait_for("message", timeout=60.0, check=check)
+            if not msg.mentions:
+                return await interaction.followup.send("❌ Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=10)
+    
+            user = msg.mentions[0]
+            parts = msg.content.split()
+            linie = [x.strip().lower() for x in parts if x.lower() in ["top", "jg", "mid", "adc", "supp"]]
+    
+            if not linie:
+                return await interaction.followup.send("❌ Nie podano żadnych linii.", ephemeral=True, delete_after=10)
+    
+            tematyczne_gracze[user.id] = {
+                "user": user,
+                "linie": linie
+            }
+    
+            await msg.delete()
+            await self.update_message()
+            await interaction.followup.send(f"✅ Dodano {user.mention} z rolami: {', '.join(linie)}", ephemeral=True, delete_after=10)
+    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏰ Czas minął.", ephemeral=True, delete_after=10)
+            
+    @discord.ui.button(label="🧹 Wyczyść listę", style=discord.ButtonStyle.danger)
+    async def clear_list(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może czyścić listę.", ephemeral=True, delete_after=10)
+    
+        tematyczne_gracze.clear()
+        await self.update_message()
+        await interaction.response.send_message("🧼 Lista graczy została wyczyszczona.", ephemeral=True, delete_after=10)
+
+
 
     @discord.ui.button(label="🎲 Losuj drużyny", style=discord.ButtonStyle.success)
     async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
