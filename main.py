@@ -57,7 +57,10 @@ signup_ids = []
 reminder_sent = False
 panel_channel = None
 ranking_mode = False
-
+tematyczne_gracze = {}
+tematyczne_nazwa = "Seria tematyczna"
+tematyczne_event_time = None
+tematyczne_reminder_sent = False
 
 
 
@@ -440,6 +443,104 @@ async def ranking(ctx, top: int = 10):
     embed = discord.Embed(title=f"🏆 Top {top} Graczy", description=description, color=discord.Color.gold())
     await ctx.send(embed=embed)
 
+# ---------- TEMATYCZNE GRANIE ---------- #
+
+tematyczne_gracze = {}
+tematyczne_nazwa = "Seria tematyczna"
+tematyczne_event_time = None
+tematyczne_reminder_sent = False
+
+
+def generate_tematyczne_embed():
+    embed = discord.Embed(title=f"Dzisiejsze skiny: {tematyczne_nazwa}", color=discord.Color.purple())
+
+    if tematyczne_event_time:
+        embed.description = f"🕒 **Czas wydarzenia:** {tematyczne_event_time.strftime('%H:%M')}"
+    else:
+        embed.description = "🕒 **Czas wydarzenia nie został ustawiony.**"
+
+    if not tematyczne_gracze:
+        embed.add_field(name="Gracze", value="Brak zapisanych graczy.", inline=False)
+    else:
+        opis = "\n".join(
+            f"{i+1}. <@{uid}> – [{', '.join(data['linie'])}]"
+            for i, (uid, data) in enumerate(tematyczne_gracze.items())
+        )
+        embed.add_field(name="Gracze", value=opis, inline=False)
+
+    return embed
+
+
+class TematycznePanel(discord.ui.View):
+    def __init__(self, *, timeout=None, message):
+        super().__init__(timeout=timeout)
+        self.message = message
+
+    @discord.ui.button(label="✅ Dołącz", style=discord.ButtonStyle.success)
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Podaj swoje linie (np. top, mid, adc):", ephemeral=True, delete_after=10)
+
+        def check(m): return m.author == interaction.user and m.channel == interaction.channel
+        try:
+            msg = await bot.wait_for("message", timeout=60.0, check=check)
+            linie = [x.strip().lower() for x in msg.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
+            if not linie:
+                await interaction.followup.send("❌ Nie podano żadnych poprawnych linii (top, jg, mid, adc, supp).", ephemeral=True, delete_after=10)
+                return
+            tematyczne_gracze[interaction.user.id] = {
+                "user": interaction.user,
+                "linie": linie
+            }
+            await msg.delete()
+            await self.update_message()
+            await interaction.followup.send(f"✅ Dodano: {', '.join(linie)}", ephemeral=True, delete_after=10)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏰ Czas minął. Spróbuj ponownie.", ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label="❌ Wypisz", style=discord.ButtonStyle.danger)
+    async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id in tematyczne_gracze:
+            del tematyczne_gracze[interaction.user.id]
+            await self.update_message()
+            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True, delete_after=10)
+        else:
+            await interaction.response.send_message("❌ Nie jesteś zapisany.", ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label="🛠️ Ustaw czas", style=discord.ButtonStyle.primary)
+    async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może ustawić czas.", ephemeral=True, delete_after=10)
+
+        await interaction.response.send_message("🕒 Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=10)
+
+        def check(m): return m.author == interaction.user and m.channel == interaction.channel
+        try:
+            msg = await bot.wait_for("message", timeout=60.0, check=check)
+            hour, minute = map(int, msg.content.strip().split(":"))
+            now = datetime.now()
+            global tematyczne_event_time, tematyczne_reminder_sent
+            tematyczne_event_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if tematyczne_event_time < now:
+                tematyczne_event_time += timedelta(days=1)
+            tematyczne_reminder_sent = False
+            await msg.delete()
+            await self.update_message()
+            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True, delete_after=10)
+        except:
+            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label="📢 Pinguj graczy", style=discord.ButtonStyle.secondary)
+    async def ping(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=10)
+        if not tematyczne_gracze:
+            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True, delete_after=10)
+        mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
+        await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=10)
+
+    async def update_message(self):
+        embed = generate_tematyczne_embed()
+        await self.message.edit(embed=embed, view=self)
 
 
 
