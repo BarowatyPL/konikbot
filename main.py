@@ -55,7 +55,7 @@ bot.last_teams = {}
 bot.zwyciezca = None
 signup_ids = []
 reminder_sent = False
-panel_channel = ctx.channel
+panel_channel = None
 ranking_mode = False
 
 
