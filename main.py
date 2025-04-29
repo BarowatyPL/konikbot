@@ -209,7 +209,7 @@ async def opis(ctx):
         color=discord.Color.green()
     )
 
-    embed.set_footer(text="Developed by BarowatyPL (geniusz, chuda maszyna")
+    embed.set_footer(text="Developed by BarowatyPL (geniusz, chuda maszyna, ostatni pod Targonem, pierwszy na midzie, \n nie dźwiga boskości — niesie ją na barkach)")
     await ctx.send(embed=embed)
 
 
