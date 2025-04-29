@@ -556,6 +556,35 @@ class TematycznePanel(discord.ui.View):
         except asyncio.TimeoutError:
             await interaction.followup.send("⏰ Czas minął. Nie zmieniono nazwy.", ephemeral=True, delete_after=10)
 
+    @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger)
+    async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może usuwać graczy.", ephemeral=True, delete_after=10)
+    
+        await interaction.response.send_message("Podaj @gracza do usunięcia:", ephemeral=True, delete_after=10)
+    
+        def check(m): return m.author == interaction.user and m.channel == interaction.channel
+        try:
+            msg = await bot.wait_for("message", timeout=30.0, check=check)
+    
+            if not msg.mentions:
+                return await interaction.followup.send("❌ Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=10)
+    
+            user = msg.mentions[0]
+    
+            if user.id not in tematyczne_gracze:
+                await msg.delete()
+                return await interaction.followup.send("❌ Ten gracz nie jest zapisany.", ephemeral=True, delete_after=10)
+    
+            del tematyczne_gracze[user.id]
+            await msg.delete()
+            await self.update_message()
+            await interaction.followup.send(f"🗑️ Usunięto {user.mention} z listy.", ephemeral=True, delete_after=10)
+    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏰ Czas minął. Nie usunięto gracza.", ephemeral=True, delete_after=10)
+
+
     @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.secondary)
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
@@ -638,7 +667,7 @@ class TematycznePanel(discord.ui.View):
         embed = discord.Embed(title="🎮 Wylosowane drużyny", color=discord.Color.orange())
         embed.add_field(name="Drużyna 1", value=team_str(team1), inline=True)
         embed.add_field(name="Drużyna 2", value=team_str(team2), inline=True)
-        await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=60)
+        await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=600)
 
     async def update_message(self):
         embed = generate_tematyczne_embed()
