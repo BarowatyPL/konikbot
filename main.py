@@ -139,6 +139,78 @@ async def pobierz_gracza(nick):
     else:
         return None
 
+# ---------- INFO I OPIS ---------- #
+
+
+
+@bot.command(name="info")
+async def info(ctx):
+    """Wyświetla listę wszystkich dostępnych komend i funkcji."""
+    embed = discord.Embed(
+        title="ℹ️ Informacje o bocie",
+        description="Poniżej znajdziesz listę dostępnych komend oraz przycisków bota.",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(
+        name="🎮 Komendy ogólne",
+        value=(
+            "`!info` – pokazuje tę wiadomość\n"
+            "`!ksante` – easter egg 😄"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="📋 Panel główny (`!panel`)",
+        value=(
+            "`!panel` – wyświetla panel zapisów\n"
+            "`!lista` – pokazuje aktualną listę graczy\n"
+            "📌 Przycisk **Zapisz / Wypisz** – dołączenie do gry\n"
+            "🕒 Przycisk **Ustaw czas** – ustawia godzinę wydarzenia\n"
+            "🧹 Przycisk **Wyczyść listy** – czyści główną i rezerwową\n"
+            "🗑️ / ➕ / 📤 – admin może zarządzać graczami\n"
+            "📢 Ping – powiadamia graczy"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🎨 Panel tematyczny (`!tematyczne`)",
+        value=(
+            "`!tematyczne` – uruchamia panel zapisów z wyborem ról (top, jg, mid, adc, supp)\n"
+            "`!tematyczne_test` – dodaje testowych graczy do listy (admin)\n"
+            "📌 Przycisk **Dołącz / Wypisz** – z wyborem ról\n"
+            "🛠️ **Ustaw czas** – ustawia godzinę wydarzenia\n"
+            "📢 **Pinguj graczy** – powiadomienie dla zapisanych\n"
+            "✏️ **Zmień nazwę serii** – zmienia nazwę widoczną w embedzie\n"
+            "➕ **Dodaj gracza** – admin podaje @gracza i linie\n"
+            "🗑️ **Usuń gracza** – admin usuwa wskazanego gracza\n"
+            "🧹 **Wyczyść listę** – czyści całą listę\n"
+            "🎲 **Losuj drużyny** – dzieli zapisanych na 2 zespoły z pełną kompozycją ról"
+        ),
+        inline=False
+    )
+
+    embed.set_footer(text="Bot przygotowany z myślą o customach League of Legends ❤️")
+
+    await ctx.send(embed=embed)
+
+@bot.command(name="opis")
+async def opis(ctx):
+    """Wyświetla wersję bota i jego przeznaczenie."""
+    embed = discord.Embed(
+        title="🤖 KonikBOT – Wersja 4.0",
+        description=(
+            "KonikBOT stworzony do organizowania gier customowych w League of Legends.\n\n"
+            "Umożliwia tworzenie zapisów, organizowanie gier tematycznych z zachowaniem ról.\n"
+            "Panel tematyczny pozwala na wydarzenia z motywem serii skinów\n"
+        ),
+        color=discord.Color.green()
+    )
+
+    embed.set_footer(text="Developed by BarowatyPL (geniusz, chuda maszyna")
+    await ctx.send(embed=embed)
 
 
 
