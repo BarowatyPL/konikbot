@@ -57,10 +57,6 @@ signup_ids = []
 reminder_sent = False
 panel_channel = None
 ranking_mode = False
-tematyczne_gracze = {}
-tematyczne_nazwa = "Seria tematyczna"
-tematyczne_event_time = None
-tematyczne_reminder_sent = False
 
 
 
@@ -165,6 +161,27 @@ def generate_embed():
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
     return embed
+
+
+def generate_tematyczne_embed():
+    embed = discord.Embed(title=f"Dzisiejsze skiny: {tematyczne_nazwa}", color=discord.Color.purple())
+
+    if tematyczne_event_time:
+        embed.description = f"🕒 **Czas wydarzenia:** {tematyczne_event_time.strftime('%H:%M')}"
+    else:
+        embed.description = "🕒 **Czas wydarzenia nie został ustawiony.**"
+
+    if not tematyczne_gracze:
+        embed.add_field(name="Gracze", value="Brak zapisanych graczy.", inline=False)
+    else:
+        opis = "\n".join(
+            f"{i+1}. <@{uid}> – [{', '.join(data['linie'])}]"
+            for i, (uid, data) in enumerate(tematyczne_gracze.items())
+        )
+        embed.add_field(name="Gracze", value=opis, inline=False)
+
+    return embed
+
 
 
 
@@ -451,26 +468,6 @@ tematyczne_event_time = None
 tematyczne_reminder_sent = False
 
 
-def generate_tematyczne_embed():
-    embed = discord.Embed(title=f"Dzisiejsze skiny: {tematyczne_nazwa}", color=discord.Color.purple())
-
-    if tematyczne_event_time:
-        embed.description = f"🕒 **Czas wydarzenia:** {tematyczne_event_time.strftime('%H:%M')}"
-    else:
-        embed.description = "🕒 **Czas wydarzenia nie został ustawiony.**"
-
-    if not tematyczne_gracze:
-        embed.add_field(name="Gracze", value="Brak zapisanych graczy.", inline=False)
-    else:
-        opis = "\n".join(
-            f"{i+1}. <@{uid}> – [{', '.join(data['linie'])}]"
-            for i, (uid, data) in enumerate(tematyczne_gracze.items())
-        )
-        embed.add_field(name="Gracze", value=opis, inline=False)
-
-    return embed
-
-
 class TematycznePanel(discord.ui.View):
     def __init__(self, *, timeout=None, message):
         super().__init__(timeout=timeout)
@@ -478,14 +475,14 @@ class TematycznePanel(discord.ui.View):
 
     @discord.ui.button(label="✅ Dołącz", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Podaj swoje linie (np. top, mid, adc):", ephemeral=True, delete_after=10)
+        await interaction.response.send_message("Podaj swoje linie (np. top, jg, mid, adc, supp):", ephemeral=True, delete_after=10)
 
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             linie = [x.strip().lower() for x in msg.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
             if not linie:
-                await interaction.followup.send("❌ Nie podano żadnych poprawnych linii (top, jg, mid, adc, supp).", ephemeral=True, delete_after=10)
+                await interaction.followup.send("❌ Nie podano poprawnych linii.", ephemeral=True, delete_after=10)
                 return
             tematyczne_gracze[interaction.user.id] = {
                 "user": interaction.user,
@@ -538,9 +535,77 @@ class TematycznePanel(discord.ui.View):
         mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
         await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=10)
 
+    @discord.ui.button(label="✏️ Zmień nazwę serii", style=discord.ButtonStyle.primary)
+    async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może zmienić nazwę.", ephemeral=True, delete_after=10)
+
+        await interaction.response.send_message("✏️ Podaj nową nazwę serii (np. Arcade Night):", ephemeral=True, delete_after=10)
+
+        def check(m): return m.author == interaction.user and m.channel == interaction.channel
+        try:
+            msg = await bot.wait_for("message", timeout=30.0, check=check)
+            global tematyczne_nazwa
+            tematyczne_nazwa = msg.content.strip()
+            await msg.delete()
+            await self.update_message()
+            await interaction.followup.send(f"✅ Nazwa serii ustawiona na: {tematyczne_nazwa}", ephemeral=True, delete_after=10)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏰ Czas minął. Nie zmieniono nazwy.", ephemeral=True, delete_after=10)
+
+    @discord.ui.button(label="🎲 Losuj drużyny", style=discord.ButtonStyle.success)
+    async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może losować drużyny.", ephemeral=True, delete_after=10)
+
+        from itertools import permutations
+        gracze = list(tematyczne_gracze.values())
+        if len(gracze) < 10:
+            return await interaction.response.send_message("❌ Potrzeba co najmniej 10 graczy do losowania.", ephemeral=True, delete_after=10)
+
+        roles = ["top", "jg", "mid", "adc", "supp"]
+
+        def is_valid(team):
+            rcount = {r: 0 for r in roles}
+            for g in team:
+                for r in g["linie"]:
+                    rcount[r] += 1
+            return all(rcount[r] >= 1 for r in roles)
+
+        # próbuj losować różne układy
+        random.shuffle(gracze)
+        for _ in range(20):  # 20 prób
+            random.shuffle(gracze)
+            team1 = gracze[:5]
+            team2 = gracze[5:10]
+            if is_valid(team1) and is_valid(team2):
+                break
+        else:
+            await interaction.response.send_message("⚠️ Nie udało się utworzyć zrównoważonych drużyn. Losuję losowo.", ephemeral=True, delete_after=10)
+            random.shuffle(gracze)
+            team1 = gracze[:5]
+            team2 = gracze[5:10]
+
+        def team_str(team):
+            return "\n".join(f"• {g['user'].mention} ({', '.join(g['linie'])})" for g in team)
+
+        embed = discord.Embed(title="🎮 Wylosowane drużyny", color=discord.Color.orange())
+        embed.add_field(name="Drużyna 1", value=team_str(team1), inline=True)
+        embed.add_field(name="Drużyna 2", value=team_str(team2), inline=True)
+        await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=60)
+
     async def update_message(self):
         embed = generate_tematyczne_embed()
         await self.message.edit(embed=embed, view=self)
+
+@bot.command(name="tematyczne")
+async def tematyczne(ctx):
+    """Wyświetla panel zapisów tematycznych z rolami."""
+    embed = generate_tematyczne_embed()
+    msg = await ctx.send(embed=embed)
+    view = TematycznePanel(message=msg)
+    await msg.edit(view=view)
+
 
 
 
