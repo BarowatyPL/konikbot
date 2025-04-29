@@ -200,7 +200,7 @@ async def info(ctx):
 async def opis(ctx):
     """Wyświetla wersję bota i jego przeznaczenie."""
     embed = discord.Embed(
-        title="🤖 KonikBOT – Wersja 4.0",
+        title="🤖 KonikBOT – Wersja 4.1",
         description=(
             "KonikBOT stworzony do organizowania gier customowych w League of Legends.\n\n"
             "Umożliwia tworzenie zapisów, organizowanie gier tematycznych z zachowaniem ról.\n"
@@ -704,21 +704,21 @@ class TematycznePanel(discord.ui.View):
     async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             return await interaction.response.send_message("Tylko administrator może losować drużyny.", ephemeral=True, delete_after=10)
-
+    
         from itertools import permutations
         gracze = list(tematyczne_gracze.values())
         if len(gracze) < 10:
             return await interaction.response.send_message("❌ Potrzeba co najmniej 10 graczy do losowania.", ephemeral=True, delete_after=10)
-
+    
         roles = ["top", "jg", "mid", "adc", "supp"]
-
+    
         def is_valid(team):
             rcount = {r: 0 for r in roles}
             for g in team:
                 for r in g["linie"]:
                     rcount[r] += 1
             return all(rcount[r] >= 1 for r in roles)
-
+    
         # próbuj losować różne układy
         random.shuffle(gracze)
         for _ in range(20):  # 20 prób
@@ -726,24 +726,33 @@ class TematycznePanel(discord.ui.View):
             team1 = gracze[:5]
             team2 = gracze[5:10]
             if is_valid(team1) and is_valid(team2):
+                warning = None
                 break
         else:
-            await interaction.response.send_message("⚠️ Nie udało się utworzyć zrównoważonych drużyn. Losuję losowo.", ephemeral=True, delete_after=10)
+            await interaction.response.defer()  # rezerwuje odpowiedź
+            warning = "⚠️ Nie udało się utworzyć zrównoważonych drużyn. Losuję losowo."
             random.shuffle(gracze)
             team1 = gracze[:5]
             team2 = gracze[5:10]
-
+    
         def team_str(team):
             return "\n".join(f"• {g['user'].mention} ({', '.join(g['linie'])})" for g in team)
-
+    
         embed = discord.Embed(title="🎮 Wylosowane drużyny", color=discord.Color.orange())
+        if warning:
+            embed.description = warning
         embed.add_field(name="Drużyna 1", value=team_str(team1), inline=True)
         embed.add_field(name="Drużyna 2", value=team_str(team2), inline=True)
-        await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=600)
-
+    
+        if warning:
+            await interaction.followup.send(embed=embed, ephemeral=False, delete_after=600)
+        else:
+            await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=600)
+    
     async def update_message(self):
         embed = generate_tematyczne_embed()
         await self.message.edit(embed=embed, view=self)
+
 
 @bot.command(name="tematyczne")
 async def tematyczne(ctx):
