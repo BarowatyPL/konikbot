@@ -570,8 +570,8 @@ class TematycznePanel(discord.ui.View):
                 return await interaction.followup.send("❌ Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=10)
     
             user = msg.mentions[0]
-            parts = msg.content.split()
-            linie = [x.strip().lower() for x in parts if x.lower() in ["top", "jg", "mid", "adc", "supp"]]
+            linie = [x.strip().lower() for x in msg.content.replace(user.mention, "").split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
+
     
             if not linie:
                 return await interaction.followup.send("❌ Nie podano żadnych linii.", ephemeral=True, delete_after=10)
@@ -651,6 +651,40 @@ async def tematyczne(ctx):
     msg = await ctx.send(embed=embed)
     view = TematycznePanel(message=msg)
     await msg.edit(view=view)
+
+
+@bot.command(name="tematyczne_test")
+@commands.has_permissions(administrator=True)
+async def tematyczne_test(ctx):
+    """Dodaje testowych graczy z nazwami zawierającymi rolę."""
+    from types import SimpleNamespace
+
+    test_gracze = [
+        ("Gracz 1 (adc, top)", ["adc", "top"]),
+        ("Gracz 2 (jg, mid)", ["jg", "mid"]),
+        ("Gracz 3 (supp)", ["supp"]),
+        ("Gracz 4 (mid)", ["mid"]),
+        ("Gracz 5 (adc)", ["adc"]),
+        ("Gracz 6 (jg)", ["jg"]),
+        ("Gracz 7 (top)", ["top"]),
+        ("Gracz 8 (supp)", ["supp"]),
+        ("Gracz 9 (mid)", ["mid"]),
+        ("Gracz 10 (top, jg)", ["top", "jg"]),
+    ]
+
+    base_id = 900000000000000000
+    for i, (name, roles) in enumerate(test_gracze):
+        mock_user = SimpleNamespace(
+            id=base_id + i,
+            mention=f"<@{base_id + i}>",
+            name=name
+        )
+        tematyczne_gracze[mock_user.id] = {
+            "user": mock_user,
+            "linie": roles
+        }
+
+    await ctx.send("✅ Dodano 10 testowych graczy z rolami.", delete_after=10)
 
 
 
