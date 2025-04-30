@@ -450,7 +450,7 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=5)
             return
         if not waiting_list:
-            await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True, delete_after=5)
+            await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True, delete_after=10)
             return
         mentions = " ".join(user.mention for user in waiting_list)
         await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}", delete_after=300)
@@ -542,6 +542,12 @@ async def ranking(ctx, top: int = 10):
 
 # ---------- TEMATYCZNE GRANIE ---------- #
 
+import discord
+from discord.ext import commands
+import asyncio
+import random
+from datetime import datetime, timedelta
+
 seria1_nazwa = "Seria 1"
 seria2_nazwa = "Seria 2"
 tematyczne_gracze = {}
@@ -549,19 +555,19 @@ tematyczne_event_time = None
 tematyczne_reminder_sent = False
 
 class TematycznePanel(discord.ui.View):
-    def __init__(self, *, timeout=None, message):
+    def __init__(self, *, message, timeout=None):
         super().__init__(timeout=timeout)
         self.message = message
 
     @discord.ui.button(label="✅ Dołącz", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(f"Podaj swoje linie dla **{seria1_nazwa}** (np. top, jg):", ephemeral=True)
+        await interaction.response.send_message(f"Podaj swoje linie dla **{seria1_nazwa}** (np. top, jg):", ephemeral=True, delete_after=10)
 
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg1 = await bot.wait_for("message", timeout=60.0, check=check)
             linie1 = [x.strip().lower() for x in msg1.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
-            await interaction.followup.send(f"Podaj swoje linie dla **{seria2_nazwa}** (np. mid, adc):", ephemeral=True)
+            await interaction.followup.send(f"Podaj swoje linie dla **{seria2_nazwa}** (np. mid, adc):", ephemeral=True, delete_after=10)
             msg2 = await bot.wait_for("message", timeout=60.0, check=check)
             linie2 = [x.strip().lower() for x in msg2.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
             if not linie1 or not linie2:
@@ -607,49 +613,49 @@ class TematycznePanel(discord.ui.View):
             tematyczne_reminder_sent = False
             await msg.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True)
+            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True, delete_after=10)
         except:
-            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True)
+            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True, delete_after=10)
 
     @discord.ui.button(label="📢 Pinguj graczy", style=discord.ButtonStyle.secondary)
     async def ping(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True)
+            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=10)
         if not tematyczne_gracze:
-            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True)
+            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True, delete_after=10)
         mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
         await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=300)
 
     @discord.ui.button(label="✏️ Zmień nazwę serii", style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może zmienić nazwy.", ephemeral=True)
+            return await interaction.response.send_message("Tylko administrator może zmienić nazwy.", ephemeral=True, delete_after=10)
 
-        await interaction.response.send_message("✏️ Podaj nową nazwę serii 1:", ephemeral=True)
+        await interaction.response.send_message("✏️ Podaj nową nazwę serii 1:", ephemeral=True, delete_after=10)
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg1 = await bot.wait_for("message", timeout=30.0, check=check)
             global seria1_nazwa
             seria1_nazwa = msg1.content.strip()
-            await interaction.followup.send("✏️ Podaj nową nazwę serii 2:", ephemeral=True)
+            await interaction.followup.send("✏️ Podaj nową nazwę serii 2:", ephemeral=True, delete_after=10)
             msg2 = await bot.wait_for("message", timeout=30.0, check=check)
             global seria2_nazwa
             seria2_nazwa = msg2.content.strip()
             await msg1.delete()
             await msg2.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Ustawiono: **{seria1_nazwa}** vs **{seria2_nazwa}**", ephemeral=True)
+            await interaction.followup.send(f"✅ Ustawiono: **{seria1_nazwa}** vs **{seria2_nazwa}**", ephemeral=True, delete_after=10)
         except asyncio.TimeoutError:
             await interaction.followup.send("⏰ Czas minął. Nie zmieniono.", ephemeral=True)
 
     @discord.ui.button(label="🎲 Losuj drużyny", style=discord.ButtonStyle.success)
     async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może losować drużyny.", ephemeral=True)
+            return await interaction.response.send_message("Tylko administrator może losować drużyny.", ephemeral=True, delete_after=10)
 
         gracze = list(tematyczne_gracze.values())
         if len(gracze) < 10:
-            return await interaction.response.send_message("❌ Potrzeba co najmniej 10 graczy do losowania.", ephemeral=True)
+            return await interaction.response.send_message("❌ Potrzeba co najmniej 10 graczy do losowania.", ephemeral=True, delete_after=10)
 
         roles = ["top", "jg", "mid", "adc", "supp"]
 
@@ -702,7 +708,6 @@ async def tematyczne(ctx):
     view = TematycznePanel(message=msg)
     await msg.edit(view=view)
 
-
 def generate_tematyczne_embed():
     embed = discord.Embed(title=f"🎮 {seria1_nazwa} vs {seria2_nazwa}", color=discord.Color.blue())
     embed.description = "Kliknij \"Dołącz\" aby zapisać się na event.\nPodajesz swoje linie osobno dla każdej serii!"
@@ -713,11 +718,9 @@ def generate_tematyczne_embed():
         embed.add_field(name="Brak zapisanych graczy", value="Czekamy na zgłoszenia!", inline=False)
     return embed
 
-
 @bot.command(name="tematyczne_test")
 @commands.has_permissions(administrator=True)
 async def tematyczne_test(ctx):
-    """Dodaje testowych graczy z nazwami zawierającymi rolę."""
     from types import SimpleNamespace
 
     test_gracze = [
@@ -742,10 +745,12 @@ async def tematyczne_test(ctx):
         )
         tematyczne_gracze[mock_user.id] = {
             "user": mock_user,
-            "linie": roles
+            "linie_seria1": roles,
+            "linie_seria2": roles
         }
 
     await ctx.send("✅ Dodano 10 testowych graczy z rolami.", delete_after=10)
+
 
 
 
