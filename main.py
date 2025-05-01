@@ -58,7 +58,8 @@ reminder_sent = False
 panel_channel = None
 ranking_mode = False
 enrollment_locked = False
-signups_locked = True
+signups_locked = False
+
 
 wczytaj_dane()
 
@@ -261,7 +262,7 @@ event_time = None  # dodane globalnie
 def generate_embed():
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
-    status_info = "❌ **Zapisy na listę główną są zablokowane!**" if enrollment_locked else "✅ **Zapisy na listę główną są otwarte.**"
+    lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signups_locked else "✅ **Zapisy na listę główną są otwarte.**"
 
     if event_time:
         czas_wydarzenia = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
@@ -270,14 +271,16 @@ def generate_embed():
 
     ranking_info = "🏆 **Rankingowa**" if ranking_mode else "🎮 **Nierankingowa**"
 
-    embed.description = f"{status_info}\n{czas_wydarzenia}\n{ranking_info}"
+    embed.description = f"{lock_status}\n{czas_wydarzenia}\n{ranking_info}"
 
     signup_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(signups)) if signups else "Brak"
     reserve_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(waiting_list)) if waiting_list else "Brak"
 
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
+
     return embed
+
 
 
 def generate_tematyczne_embed():
@@ -568,6 +571,15 @@ class SignupPanel(discord.ui.View):
             ephemeral=True, delete_after=5
         )
         await log_to_discord(f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
+
+    async def update_message(self, interaction: discord.Interaction, log_click: bool = False):
+        embed = generate_embed()
+        await self.message.edit(embed=embed, view=self)
+        await interaction.response.defer()
+
+        if log_click:
+            await log_to_discord(f"👆 {interaction.user.mention} kliknął przycisk.")
+
 
 
 
