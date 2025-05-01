@@ -95,9 +95,9 @@ async def check_event_time():
             reminder_sent = True
             if signups:
                 mentions = " ".join(user.mention for user in signups)
-                await panel_channel.send(f"⏰ **Przypomnienie!** Customy za 15 minut!\n{mentions}", delete_after=1200)
+                await panel_channel.send(f"⏰ **Przypomnienie!** Customy za 15 minut!\n{mentions}", delete_after=2400)
             else:
-                await panel_channel.send("⏰ Customy za 15 minut, ale lista główna jest pusta.", delete_after=1200)
+                await panel_channel.send("⏰ Customy za 15 minut, ale lista główna jest pusta.", delete_after=2400)
 
     # Tematyczna lista
     if tematyczne_event_time and not tematyczne_reminder_sent:
