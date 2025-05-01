@@ -57,7 +57,7 @@ signup_ids = []
 reminder_sent = False
 panel_channel = None
 ranking_mode = False
-
+enrollment_locked = False
 
 
 wczytaj_dane()
@@ -261,6 +261,8 @@ event_time = None  # dodane globalnie
 def generate_embed():
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
+    status_info = "❌ **Zapisy na listę główną są zablokowane!**" if enrollment_locked else "✅ **Zapisy na listę główną są otwarte.**"
+
     if event_time:
         czas_wydarzenia = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
     else:
@@ -268,7 +270,7 @@ def generate_embed():
 
     ranking_info = "🏆 **Rankingowa**" if ranking_mode else "🎮 **Nierankingowa**"
 
-    embed.description = f"{czas_wydarzenia}\n{ranking_info}"
+    embed.description = f"{status_info}\n{czas_wydarzenia}\n{ranking_info}"
 
     signup_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(signups)) if signups else "Brak"
     reserve_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(waiting_list)) if waiting_list else "Brak"
@@ -311,13 +313,20 @@ class SignupPanel(discord.ui.View):
         if user in signups or user in waiting_list:
             await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
             return
-        if len(signups) < MAX_SIGNUPS:
-            signups.append(user)
-        else:
+    
+        if signups_locked:
             waiting_list.append(user)
-        await self.update_message(interaction)
-        await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
+            await self.update_message(interaction)
+            await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (główna zablokowana).")
+        else:
+            if len(signups) < MAX_SIGNUPS:
+                signups.append(user)
+            else:
+                waiting_list.append(user)
+            await self.update_message(interaction)
+            await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
 
+    
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
@@ -330,7 +339,7 @@ class SignupPanel(discord.ui.View):
             return
         await self.update_message(interaction)
         await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
-
+    
     @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary)
     async def reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
@@ -340,14 +349,14 @@ class SignupPanel(discord.ui.View):
         waiting_list.append(user)
         await self.update_message(interaction)
         await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (ręcznie).")
-
+    
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=5)
             return
         await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=5)
-
+    
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
@@ -365,14 +374,14 @@ class SignupPanel(discord.ui.View):
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
         except ValueError:
             await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True, delete_after=5)
-
+    
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
     async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może usuwać graczy.", ephemeral=True, delete_after=5)
             return
         await interaction.response.send_message("Podaj @użytkownika do usunięcia:", ephemeral=True, delete_after=10)
-
+    
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
@@ -392,14 +401,14 @@ class SignupPanel(discord.ui.View):
             await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
-
+    
     @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może dodawać graczy.", ephemeral=True, delete_after=5)
             return
         await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True, delete_after=10)
-
+    
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
@@ -422,14 +431,14 @@ class SignupPanel(discord.ui.View):
             await self.update_message(interaction)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
-
-    @discord.ui.button(label="📥 Dodaj do rezerwy", style=discord.ButtonStyle.secondary, row=1)
+    
+    @discord.ui.button(label="📅 Dodaj do rezerwy", style=discord.ButtonStyle.secondary, row=1)
     async def add_to_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może dodawać do rezerwy.", ephemeral=True, delete_after=5)
             return
         await interaction.response.send_message("Podaj @użytkownika do dodania na listę rezerwową:", ephemeral=True, delete_after=10)
-
+    
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
@@ -447,7 +456,7 @@ class SignupPanel(discord.ui.View):
             await self.update_message(interaction)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
-
+    
     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
     async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
@@ -457,7 +466,7 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Lista główna jest już pełna.", ephemeral=True, delete_after=5)
             return
         await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy:", ephemeral=True, delete_after=10)
-
+    
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
@@ -475,8 +484,8 @@ class SignupPanel(discord.ui.View):
                 await interaction.followup.send("Użytkownik nie znajduje się na liście rezerwowej.", ephemeral=True, delete_after=5)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
-
-    @discord.ui.button(label="🧹 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
+    
+    @discord.ui.button(label="🪃 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
     async def clear_lists(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może czyścić listy.", ephemeral=True, delete_after=5)
@@ -489,11 +498,11 @@ class SignupPanel(discord.ui.View):
         event_time = None
         reminder_sent = False
     
-        await self.update_message(interaction)
+        await self.update_message(interaction, log_click=True)
         await interaction.response.send_message("Listy oraz godzina wydarzenia zostały wyczyszczone.", ephemeral=True, delete_after=5)
         await log_to_discord(f"👤 {interaction.user.mention} wyczyścił listy i usunął godzinę wydarzenia.")
-
-
+    
+    
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
     async def ping_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
@@ -517,24 +526,37 @@ class SignupPanel(discord.ui.View):
         mentions = " ".join(user.mention for user in waiting_list)
         await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}", delete_after=300)
         await log_to_discord(f"👤 {interaction.user.mention} pingnął listę rezerwową.")
-
-    @discord.ui.button(label="🎯 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
+    
+    @discord.ui.button(label="🎮 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
     async def toggle_ranking(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może zmieniać tryb gry.", ephemeral=True, delete_after=5)
             return
         global ranking_mode
         ranking_mode = not ranking_mode
-        await self.update_message(interaction)
+        await self.update_message(interaction, log_click=True)
         await interaction.response.send_message(
             f"✅ Tryb gry zmieniony na: {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}", ephemeral=True, delete_after=5
         )
         await log_to_discord(f"👤 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}.")
 
-    async def update_message(self, interaction: discord.Interaction):
-        embed = generate_embed()
-        await self.message.edit(embed=embed, view=self)
-        await interaction.response.defer()
+    @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=2)
+    async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("Tylko administrator może przełączać zapisy.", ephemeral=True, delete_after=5)
+            return
+    
+        global signups_locked
+        signups_locked = not signups_locked
+    
+        button.label = "✅ Wznów zapisy" if signups_locked else "🔒 Zatrzymaj zapisy"
+    
+        await self.update_message(interaction)
+        await interaction.response.send_message(
+            f"{'🔒' if signups_locked else '✅'} Zapisy na listę główną zostały {'zatrzymane' if signups_locked else 'wznowione'}.",
+            ephemeral=True, delete_after=5
+        )
+        await log_to_discord(f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
 
 
 
