@@ -58,7 +58,7 @@ reminder_sent = False
 panel_channel = None
 ranking_mode = False
 enrollment_locked = False
-
+signups_locked = True
 
 wczytaj_dane()
 
@@ -551,7 +551,7 @@ class SignupPanel(discord.ui.View):
         )
         await log_to_discord(f"👤 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}.")
 
-    @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=4)
+    @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=3)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może przełączać zapisy.", ephemeral=True, delete_after=5)
@@ -568,6 +568,7 @@ class SignupPanel(discord.ui.View):
             ephemeral=True, delete_after=5
         )
         await log_to_discord(f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
+
 
 
 
