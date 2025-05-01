@@ -219,6 +219,41 @@ async def opis(ctx):
 
 
 
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def regulamin(ctx):
+    """Wyświetla regulamin customów LoL"""
+    try:
+        await ctx.message.delete(delay=5)
+    except discord.Forbidden:
+        pass  # na wypadek braku uprawnień do kasowania
+
+    regulamin_text = (
+        "**📜 Regulamin Customów LoL**\n\n"
+        "⏰ **Punktualność**\n"
+        "Gracz, który nie pojawi się na czas i nie poinformuje o swojej nieobecności przynajmniej 10 minut przed rozpoczęciem gry, łamie zasady.\n\n"
+        "🚫 **Zapraszanie osób trzecich**\n"
+        "Nie wolno zapraszać osób spoza ustalonego składu bez wiedzy organizatora. Osoba, która to zrobi, zostaje usunięta z rozgrywki.\n\n"
+        "🧠 **Zapomniany Smite? Gramy dalej**\n"
+        "Nie przerywamy gry z powodu pomyłek takich jak brak smite’a. Gramy dalej – liczy się zabawa, a nie perfekcja.\n\n"
+        "❌ **Pomyłki w pickach**\n"
+        "Jeśli ktoś wybierze niewłaściwą postać, gra jest kontynuowana.\n"
+        "_Wyjątek: w ARAM 5v5 każda drużyna może raz przerwać grę z tego powodu._\n\n"
+        "🔁 **Kończysz grę = wypisz się**\n"
+        "Gracz kończący udział w grach ma obowiązek wypisać się z listy. Aby zagrać ponownie, należy zapisać się od nowa po przerwie.\n\n"
+        "⏳ **Czekanie na osobę z ławki**\n"
+        "Na osobę z ławki czekamy maksymalnie 5 minut. Czas może być wydłużony do 10 minut tylko wtedy, gdy wszyscy gracze wyrażą zgodę a osoba potwierdzi swoje szybkie przybycie.\n\n"
+        "🧮 **Dobór graczy z ławki**\n"
+        "Gracze z ławki są wybierani na podstawie tego, kto pierwszy napisze na kanale, że chce grać – po otrzymanym pingu. Wcześniejsza wiadomość nie ma znaczenia.\n"
+        "_Nie liczy się samo wejście na kanał głosowy ani reakcje na wiadomości._\n\n"
+        "🚷 **Przerwy tylko w nagłych wypadkach**\n"
+        "Przerwy są dopuszczalne wyłącznie w sytuacjach wyjątkowych (np. awaria, pilna sprawa). Nie robimy przerw na toaletę, jedzenie czy inne mniej istotne potrzeby.\n\n"
+        "*W przypadku niejasności decyzję podejmują administratorzy.*"
+    )
+
+    await ctx.send(regulamin_text, delete_after=1200)
+
+
 # ---------- SYSTEM ZAPISÓW I WYŚWIETLANIA ---------- #
 
 event_time = None  # dodane globalnie
