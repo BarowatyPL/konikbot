@@ -520,12 +520,23 @@ class SignupPanel(discord.ui.View):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=5)
             return
+    
         if not waiting_list:
             await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True, delete_after=10)
             return
+    
+        channel_id = 1367556641419034745
+        target_channel = interaction.guild.get_channel(channel_id)
+    
+        if target_channel is None:
+            await interaction.response.send_message("Nie mogę znaleźć kanału docelowego.", ephemeral=True)
+            return
+    
         mentions = " ".join(user.mention for user in waiting_list)
-        await interaction.response.send_message(f"Pinguję listę rezerwową:\n{mentions}", delete_after=300)
-        await log_to_discord(f"👤 {interaction.user.mention} pingnął listę rezerwową.")
+        await target_channel.send(f"📢 Lista rezerwowa została pingnięta przez {interaction.user.mention}:\n{mentions}")
+        await interaction.response.send_message("Ping został wysłany na kanał.", ephemeral=True, delete_after=5)
+        await log_to_discord(f"👤 {interaction.user.mention} pingnął listę rezerwową w <#{channel_id}>.")
+
     
     @discord.ui.button(label="🎮 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
     async def toggle_ranking(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -540,7 +551,7 @@ class SignupPanel(discord.ui.View):
         )
         await log_to_discord(f"👤 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}.")
 
-    @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=2)
+    @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=4)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może przełączać zapisy.", ephemeral=True, delete_after=5)
