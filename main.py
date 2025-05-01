@@ -351,7 +351,7 @@ class SignupPanel(discord.ui.View):
             return
         waiting_list.append(user)
         await self.update_message(interaction)
-        await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (ręcznie).")
+        await log_to_discord(f"👤 {user.mention} sam zapisał się na listę rezerwową.")
     
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -578,7 +578,7 @@ class SignupPanel(discord.ui.View):
         await interaction.response.defer()
 
         if log_click:
-            await log_to_discord(f"👆 {interaction.user.mention} kliknął przycisk.")
+            await log_to_discord(f"👆 {interaction.user.mention} zmienił stan zapisów.")
 
 
 
