@@ -404,6 +404,7 @@ class SignupPanel(discord.ui.View):
             await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
 
 
+
     
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -681,10 +682,10 @@ class SignupPanel(discord.ui.View):
     async def ask_for_nickname(self, interaction: discord.Interaction, user: discord.User) -> bool:
         await interaction.response.send_message(
             "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
-            ephemeral=True
+            ephemeral=False
         )
-        def check(msg): 
-            return msg.author.id == user.id and msg.channel == interaction.channel
+    
+        def check(msg): return msg.author.id == user.id and msg.channel == interaction.channel
     
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
@@ -695,11 +696,12 @@ class SignupPanel(discord.ui.View):
                 return False
             await add_nicknames(user.id, nicknames)
             await msg.delete()
-            await interaction.followup.send("✅ Nick(i) zapisane.", delete_after=5)
+            await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True, delete_after=5)
             return True
         except asyncio.TimeoutError:
             await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True, delete_after=5)
             return False
+
 
 
 
