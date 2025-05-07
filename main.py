@@ -693,25 +693,29 @@ class SignupPanel(discord.ui.View):
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             nick_input = msg.content.strip()
             nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
-            if not nicknames:
-                await msg.delete()
-                fail_msg = await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.")
-                await asyncio.sleep(5)
-                await fail_msg.delete()
-                return False
-            await add_nicknames(user.id, nicknames)
             await msg.delete()
-            confirm = await interaction.followup.send("✅ Nick(i) zapisane.")
+    
+            if not nicknames:
+                fail = await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.")
+                await asyncio.sleep(5)
+                await fail.delete()
+                await prompt.delete()
+                return False
+    
+            await add_nicknames(user.id, nicknames)
+            success = await interaction.followup.send("✅ Nick(i) zapisane.")
             await asyncio.sleep(5)
-            await confirm.delete()
+            await success.delete()
             await prompt.delete()
             return True
+    
         except asyncio.TimeoutError:
-            timeout_msg = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.")
+            timeout = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.")
             await asyncio.sleep(5)
-            await timeout_msg.delete()
+            await timeout.delete()
             await prompt.delete()
             return False
+
 
 
 
