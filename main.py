@@ -72,14 +72,14 @@ db = None
 
 async def connect_to_db():
     global db
-    db = await asyncpg.connect(os.getenv("postgresql://postgres:wBWAWYZVOmfpebntINEbWxXygJromLRU@maglev.proxy.rlwy.net:55312/railway"))
+    db = await asyncpg.connect(os.getenv("DATABASE_URL"))
 
 
 db_pool = None
 
 async def connect_lol_nick_pool():
     global db_pool
-    db_pool = await asyncpg.create_pool(os.getenv("postgresql://postgres:wBWAWYZVOmfpebntINEbWxXygJromLRU@maglev.proxy.rlwy.net:55312/railway"))
+    db = await asyncpg.connect(os.getenv("DATABASE_URL"))
     print("✅ db_pool połączone:", db_pool)
 
 
