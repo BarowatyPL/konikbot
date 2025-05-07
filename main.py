@@ -545,10 +545,11 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Tylko administrator może dodawać do rezerwy.", ephemeral=True, delete_after=5)
             return
     
-        prompt = await interaction.followup.send("Podaj @użytkownika do dodania na listę rezerwową:")
+        await interaction.response.send_message("Podaj @użytkownika do dodania na listę rezerwową:", ephemeral=True)
+        prompt = await interaction.original_response()
     
         def check(msg):
-            return msg.author == interaction.user and msg.channel == interaction.channel
+            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
     
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
