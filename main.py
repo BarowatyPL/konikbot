@@ -545,50 +545,67 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Tylko administrator może dodawać do rezerwy.", ephemeral=True, delete_after=5)
             return
     
-        prompt = await interaction.channel.send("Podaj @użytkownika do dodania na listę rezerwową:")
+        prompt = await interaction.followup.send("Podaj @użytkownika do dodania na listę rezerwową:")
     
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
     
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
-    
             if not msg.mentions:
-                fail = await interaction.channel.send("Musisz oznaczyć użytkownika.")
+                error = await interaction.followup.send("Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
                 await asyncio.sleep(5)
-                await fail.delete()
-                await prompt.delete()
+                try:
+                    await prompt.delete()
+                    await msg.delete()
+                    await error.delete()
+                except:
+                    pass
                 return
     
             user = msg.mentions[0]
     
             if user in signups or user in waiting_list:
-                info = await interaction.channel.send("Ten użytkownik już jest zapisany.")
+                info = await interaction.followup.send("Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
                 await asyncio.sleep(5)
-                await info.delete()
-                await msg.delete()
-                await prompt.delete()
+                try:
+                    await prompt.delete()
+                    await msg.delete()
+                    await info.delete()
+                except:
+                    pass
                 return
     
             nicknames = await get_nicknames(user.id)
             if not nicknames:
                 success = await self.ask_for_nickname_admin(interaction.channel, user)
                 if not success:
-                    await msg.delete()
-                    await prompt.delete()
+                    try:
+                        await prompt.delete()
+                        await msg.delete()
+                    except:
+                        pass
                     return
     
             waiting_list.append(user)
-            await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy rezerwowej (ręcznie).")
             await self.update_message(interaction)
-            await msg.delete()
-            await prompt.delete()
+            await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy rezerwowej (ręcznie).")
+    
+            try:
+                await prompt.delete()
+                await msg.delete()
+            except:
+                pass
     
         except asyncio.TimeoutError:
-            timeout = await interaction.channel.send("Czas na odpowiedź minął.")
+            timeout_msg = await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
             await asyncio.sleep(5)
-            await timeout.delete()
-            await prompt.delete()
+            try:
+                await prompt.delete()
+                await timeout_msg.delete()
+            except:
+                pass
+
 
 
 
