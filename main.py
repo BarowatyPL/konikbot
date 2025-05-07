@@ -684,7 +684,7 @@ class SignupPanel(discord.ui.View):
                 return False
             await add_nicknames(user.id, nicknames)
             await msg.delete()
-            await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True, delete_after=5)
+            await interaction.followup.send("✅ Nick(i) zapisane.", delete_after=5)
             return True
         except asyncio.TimeoutError:
             await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True, delete_after=5)
