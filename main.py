@@ -498,25 +498,28 @@ class SignupPanel(discord.ui.View):
             await interaction.response.send_message("Tylko administrator może dodawać graczy.", ephemeral=True, delete_after=5)
             return
     
-        await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True, delete_after=10)
+        await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True)
     
-        def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
+        def check(msg):
+            return msg.author == interaction.user and msg.channel == interaction.channel
+    
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
             if not msg.mentions:
-                await interaction.followup.send("Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
+                await interaction.followup.send("❌ Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
                 return
     
             user = msg.mentions[0]
     
             if user in signups or user in waiting_list:
-                await interaction.followup.send("Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
+                await interaction.followup.send("✅ Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
                 await msg.delete()
                 return
     
             nicknames = await get_nicknames(user.id)
             if not nicknames:
-                success = await self.ask_for_nickname(interaction, user)
+                # zamiast interaction przekazuj interaction.channel
+                success = await self.ask_for_nickname_admin(interaction.channel, user)
                 if not success:
                     await msg.delete()
                     return
@@ -525,14 +528,16 @@ class SignupPanel(discord.ui.View):
                 signups.append(user)
                 await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy głównej.")
             else:
-                await interaction.followup.send("Lista główna jest pełna.", ephemeral=True, delete_after=5)
+                await interaction.followup.send("🚫 Lista główna jest pełna.", ephemeral=True, delete_after=5)
                 await msg.delete()
                 return
     
             await msg.delete()
             await self.update_message(interaction)
+    
         except asyncio.TimeoutError:
-            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+            await interaction.followup.send("⏳ Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+
 
     
     @discord.ui.button(label="📅 Dodaj do rezerwy", style=discord.ButtonStyle.secondary, row=1)
@@ -726,6 +731,37 @@ class SignupPanel(discord.ui.View):
             timeout = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True)
             await asyncio.sleep(5)
             await timeout.delete()
+            return False
+    async def ask_for_nickname_admin(self, channel, user: discord.User) -> bool:
+        prompt = await channel.send(f"🔹 {user.mention}, podaj nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.")
+    
+        def check(msg):
+            return msg.author.id == user.id and msg.channel == channel
+    
+        try:
+            msg = await bot.wait_for("message", timeout=60.0, check=check)
+            nick_input = msg.content.strip()
+            nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
+            if not nicknames:
+                await msg.delete()
+                fail_msg = await channel.send("❌ Nie podano żadnego nicku. Anulowano.")
+                await asyncio.sleep(5)
+                await fail_msg.delete()
+                return False
+    
+            await add_nicknames(user.id, nicknames)
+            await msg.delete()
+            confirm = await channel.send("✅ Nick(i) zapisane.")
+            await asyncio.sleep(5)
+            await confirm.delete()
+            await prompt.delete()
+            return True
+    
+        except asyncio.TimeoutError:
+            timeout_msg = await channel.send("⏳ Czas minął. Nie podano nicku.")
+            await asyncio.sleep(5)
+            await timeout_msg.delete()
+            await prompt.delete()
             return False
 
 
