@@ -316,24 +316,35 @@ async def generate_embed_async():
         czas_wydarzenia = "🕒 **Czas wydarzenia nie został jeszcze ustawiony.**"
 
     ranking_info = "🏆 **Rankingowa**" if ranking_mode else "🎮 **Nierankingowa**"
-
     embed.description = f"{lock_status}\n{czas_wydarzenia}\n{ranking_info}"
-
-    async def format_user(user):
-        nicknames = await get_nicknames(user.id)
-        nick_str = f" ({', '.join(nicknames)})" if nicknames else ""
-        return f"{user.mention}{nick_str}"
-
-    signup_lines = await asyncio.gather(*(format_user(user) for user in signups))
-    reserve_lines = await asyncio.gather(*(format_user(user) for user in waiting_list))
-
-    signup_str = "\n".join(f"{i+1}. {line}" for i, line in enumerate(signup_lines)) if signup_lines else "Brak"
-    reserve_str = "\n".join(f"{i+1}. {line}" for i, line in enumerate(reserve_lines)) if reserve_lines else "Brak"
+    nicknames = {}
+    if db_pool:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT user_id, nickname FROM lol_nicknames")
+            for row in rows:
+                uid = row["user_id"]
+                nick = row["nickname"]
+                nicknames.setdefault(uid, []).append(nick)
+    if signups:
+        signup_str = "\n".join(
+            f"{i+1}. {user.mention} {' '.join(f'`{n}`' for n in nicknames.get(user.id, []))}"
+            for i, user in enumerate(signups)
+        )
+    else:
+        signup_str = "Brak"
+    if waiting_list:
+        reserve_str = "\n".join(
+            f"{i+1}. {user.mention} {' '.join(f'`{n}`' for n in nicknames.get(user.id, []))}"
+            for i, user in enumerate(waiting_list)
+        )
+    else:
+        reserve_str = "Brak"
 
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
 
     return embed
+
 
 
 
@@ -967,7 +978,34 @@ async def tematyczne_test(ctx):
     await ctx.send("✅ Dodano 10 testowych graczy z rolami.", delete_after=10)
 
 
+# ---------- KOMENDY DO NICKÓW ---------- #
 
+@bot.command(name="dodajnick")
+@commands.has_permissions(administrator=True)
+async def dodaj_nick(ctx, member: discord.Member, *, nicki: str):
+    nicknames = [n.strip() for n in nicki.split(",") if n.strip()]
+    if not nicknames:
+        await ctx.send("❌ Nie podano żadnych nicków.")
+        return
+    await add_nicknames(member.id, nicknames)
+    await ctx.send(f"✅ Dodano {len(nicknames)} nick(ów) dla {member.mention}.")
+
+@bot.command(name="usunnick")
+@commands.has_permissions(administrator=True)
+async def usun_nick(ctx, member: discord.Member, *, nick: str):
+    if db_pool is None:
+        await ctx.send("❌ Baza danych niepołączona.")
+        return
+
+    async with db_pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM lol_nicknames WHERE user_id = $1 AND nickname = $2",
+            member.id, nick.strip()
+        )
+        if result.endswith("1"):
+            await ctx.send(f"🗑️ Nick `{nick}` został usunięty dla {member.mention}.")
+        else:
+            await ctx.send(f"❌ Nick `{nick}` nie został znaleziony dla {member.mention}.")
 
 
 
