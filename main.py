@@ -95,7 +95,7 @@ async def on_ready():
     await create_tables()
     print(f'✅ Zalogowano jako {bot.user.name}')
     check_event_time.start()
-    #przypomnienie_o_evencie.start()
+    przypomnienie_o_evencie.start()
 
 
 async def create_tables():
@@ -252,7 +252,7 @@ async def info(ctx):
 async def opis(ctx):
     """Wyświetla wersję bota i jego przeznaczenie."""
     embed = discord.Embed(
-        title="🤖 KonikBOT – Wersja 4.2",
+        title="🤖 KonikBOT – Wersja 5.0",
         description=(
             "KonikBOT stworzony do organizowania gier customowych w League of Legends.\n\n"
             "Umożliwia tworzenie zapisów, organizowanie gier tematycznych z zachowaniem ról.\n"
@@ -317,26 +317,24 @@ async def generate_embed_async():
 
     ranking_info = "🏆 **Rankingowa**" if ranking_mode else "🎮 **Nierankingowa**"
     embed.description = f"{lock_status}\n{czas_wydarzenia}\n{ranking_info}"
-    nicknames = {}
-    if db_pool:
-        async with db_pool.acquire() as conn:
-            rows = await conn.fetch("SELECT user_id, nickname FROM lol_nicknames")
-            for row in rows:
-                uid = row["user_id"]
-                nick = row["nickname"]
-                nicknames.setdefault(uid, []).append(nick)
+
+    # Lista główna
     if signups:
-        signup_str = "\n".join(
-            f"{i+1}. {user.mention} {' '.join(f'`{n}`' for n in nicknames.get(user.id, []))}"
-            for i, user in enumerate(signups)
-        )
+        signup_str = ""
+        for i, user in enumerate(signups):
+            nicknames = await get_nicknames(user.id)
+            formatted_nicks = ", ".join(f"`{nick}`" for nick in nicknames) if nicknames else "*brak nicku*"
+            signup_str += f"{i+1}. {user.mention} – {formatted_nicks}\n"
     else:
         signup_str = "Brak"
+
+    # Lista rezerwowa
     if waiting_list:
-        reserve_str = "\n".join(
-            f"{i+1}. {user.mention} {' '.join(f'`{n}`' for n in nicknames.get(user.id, []))}"
-            for i, user in enumerate(waiting_list)
-        )
+        reserve_str = ""
+        for i, user in enumerate(waiting_list):
+            nicknames = await get_nicknames(user.id)
+            formatted_nicks = ", ".join(f"`{nick}`" for nick in nicknames) if nicknames else "*brak nicku*"
+            reserve_str += f"{i+1}. {user.mention} – {formatted_nicks}\n"
     else:
         reserve_str = "Brak"
 
@@ -344,6 +342,7 @@ async def generate_embed_async():
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
 
     return embed
+
 
 
 
