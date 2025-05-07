@@ -72,7 +72,7 @@ db = None
 
 async def connect_to_db():
     global db
-    db = await asyncpg.connect(os.getenv("DATABASE_URL"))
+    db = await asyncpg.connect(os.getenv("postgresql://postgres:wBWAWYZVOmfpebntINEbWxXygJromLRU@maglev.proxy.rlwy.net:55312/railway"))
 
 
 db_pool = None
@@ -691,8 +691,7 @@ async def panel(ctx):
     """Pokazuje panel zapisów z przyciskami."""
     global panel_channel
     panel_channel = ctx.channel
-
-    embed = generate_embed()
+    embed = await generate_embed_async()
     message = await ctx.send(embed=embed)        
     view = SignupPanel(message=message)           
     await message.edit(view=view)                 
