@@ -756,21 +756,26 @@ class SignupPanel(discord.ui.View):
             await asyncio.sleep(5)
             await timeout.delete()
             return False
+    
     async def ask_for_nickname_admin(self, channel, user: discord.User) -> bool:
-        prompt = await channel.send(f"🔹 {user.mention}, podaj nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.")
-    
-        def check(msg):
-            return msg.author.id == user.id and msg.channel == channel
-    
         try:
+            prompt = await channel.send(
+                f"🔹 {user.mention}, podaj nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami."
+            )
+    
+            def check(msg):
+                return msg.author.id == user.id and msg.channel == channel
+    
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             nick_input = msg.content.strip()
             nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
+    
             if not nicknames:
                 await msg.delete()
                 fail_msg = await channel.send("❌ Nie podano żadnego nicku. Anulowano.")
                 await asyncio.sleep(5)
                 await fail_msg.delete()
+                await prompt.delete()
                 return False
     
             await add_nicknames(user.id, nicknames)
@@ -787,6 +792,13 @@ class SignupPanel(discord.ui.View):
             await timeout_msg.delete()
             await prompt.delete()
             return False
+
+    except Exception as e:
+        error_msg = await channel.send(f"⚠️ Wystąpił błąd: {e}")
+        await asyncio.sleep(5)
+        await error_msg.delete()
+        return False
+
 
 
 
