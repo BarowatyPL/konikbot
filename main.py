@@ -657,10 +657,10 @@ class SignupPanel(discord.ui.View):
 
 
     async def ask_for_nickname(self, interaction: discord.Interaction, user: discord.User) -> bool:
-    await interaction.response.send_message(
-        "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
-        ephemeral=True
-    )
+        await interaction.response.send_message(
+            "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
+            ephemeral=True
+        )
 
     def check(msg): return msg.author.id == user.id and msg.channel == interaction.channel
 
