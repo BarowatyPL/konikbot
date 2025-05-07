@@ -674,11 +674,26 @@ class SignupPanel(discord.ui.View):
 
     async def update_message(self, interaction: discord.Interaction, log_click: bool = False):
         embed = await generate_embed_async()
-        await self.message.edit(embed=embed, view=self)
-        await interaction.response.defer()
-    
+
+        try:
+            await self.message.edit(embed=embed, view=self)
+        except discord.HTTPException:
+            pass
+
+        if interaction.response.is_done():
+            try:
+                await interaction.followup.send("✅ Panel zaktualizowany.", ephemeral=True, delete_after=3)
+            except:
+                pass
+        else:
+            try:
+                await interaction.response.defer()
+            except discord.InteractionResponded:
+                pass
+
         if log_click:
             await log_to_discord(f"👆 {interaction.user.mention} zmienił stan zapisów.")
+
 
 
     async def ask_for_nickname(self, interaction: discord.Interaction, user: discord.User) -> bool:
