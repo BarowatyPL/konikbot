@@ -980,32 +980,58 @@ async def tematyczne_test(ctx):
 
 # ---------- KOMENDY DO NICKÓW ---------- #
 
-@bot.command(name="dodajnick")
+@bot.command(help="Dodaje nick(i) LoL do użytkownika. Można podać wiele, oddzielając przecinkami.\nPrzykład: !dodajnick @nick_dc nick#EUNE, Nick2#EUNE")
 @commands.has_permissions(administrator=True)
-async def dodaj_nick(ctx, member: discord.Member, *, nicki: str):
-    nicknames = [n.strip() for n in nicki.split(",") if n.strip()]
-    if not nicknames:
-        await ctx.send("❌ Nie podano żadnych nicków.")
-        return
-    await add_nicknames(member.id, nicknames)
-    await ctx.send(f"✅ Dodano {len(nicknames)} nick(ów) dla {member.mention}.")
+async def dodajnick(ctx, member: discord.Member = None, *, nicknames: str = None):
+    await ctx.message.delete(delay=5)
 
-@bot.command(name="usunnick")
+    if not member or not nicknames:
+        await ctx.send("📌 Użycie: `!dodajnick @użytkownik Nick#EUW, Smurf#EUNE`", delete_after=10)
+        return
+
+    nickname_list = [n.strip() for n in nicknames.split(",") if n.strip()]
+    if not nickname_list:
+        await ctx.send("❌ Nie podano żadnego nicku.", delete_after=5)
+        return
+
+    await add_nicknames(member.id, nickname_list)
+    await ctx.send(f"✅ Dodano {len(nickname_list)} nick(ów) dla {member.mention}.", delete_after=5)
+
+
+
+@bot.command(help="Usuwa nick LoL gracza.\nPrzykład: !usunnick @nick_dc nick#EUNE")
 @commands.has_permissions(administrator=True)
-async def usun_nick(ctx, member: discord.Member, *, nick: str):
-    if db_pool is None:
-        await ctx.send("❌ Baza danych niepołączona.")
+async def usunnick(ctx, member: discord.Member = None, *, nickname: str = None):
+    await ctx.message.delete(delay=5)
+
+    if not member or not nickname:
+        await ctx.send("📌 Użycie: `!usunnick @użytkownik Nick#EUW`", delete_after=10)
         return
 
     async with db_pool.acquire() as conn:
         result = await conn.execute(
             "DELETE FROM lol_nicknames WHERE user_id = $1 AND nickname = $2",
-            member.id, nick.strip()
+            member.id, nickname
         )
-        if result.endswith("1"):
-            await ctx.send(f"🗑️ Nick `{nick}` został usunięty dla {member.mention}.")
+        if result.endswith("0"):
+            await ctx.send(f"❌ Nick `{nickname}` nie został znaleziony u {member.mention}.", delete_after=5)
         else:
-            await ctx.send(f"❌ Nick `{nick}` nie został znaleziony dla {member.mention}.")
+            await ctx.send(f"🏀 Nick `{nickname}` został usunięty dla {member.mention}.", delete_after=5)
+
+
+@bot.command(help="Wyświetla zapisane nicki gracza. Jeśli nie podasz gracza, pokaże Twoje.\nPrzykład: !nicki @nick_dc")
+async def nicki(ctx, member: discord.Member = None):
+    await ctx.message.delete(delay=5)
+
+    target = member or ctx.author
+    nicknames = await get_nicknames(target.id)
+
+    if not nicknames:
+        await ctx.send(f"🔎 {target.mention} nie ma zapisanych żadnych nicków.", delete_after=5)
+    else:
+        formatted = "\n".join(f"`{nick}`" for nick in nicknames)
+        await ctx.send(f"📋 Nicki zapisane dla {target.mention}:\n{formatted}", delete_after=10)
+
 
 
 
