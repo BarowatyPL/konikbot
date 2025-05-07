@@ -36,7 +36,7 @@ DB_URL = os.getenv("DATABASE_URL")
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.members = True  # <- DODAJ TO TUTAJ
+intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
@@ -79,8 +79,12 @@ db_pool = None
 
 async def connect_lol_nick_pool():
     global db_pool
-    db = await asyncpg.connect(os.getenv("DATABASE_URL"))
-    print("✅ db_pool połączone:", db_pool)
+    try:
+        db_pool = await asyncpg.create_pool(os.getenv("DATABASE_URL"))
+        print("✅ Połączono z bazą nicków LoL-a.")
+    except Exception as e:
+        print("❌ Błąd przy łączeniu z bazą nicków:", e)
+
 
 
 
@@ -91,7 +95,7 @@ async def on_ready():
     await create_tables()
     print(f'✅ Zalogowano jako {bot.user.name}')
     check_event_time.start()
-    przypomnienie_o_evencie.start()
+    #przypomnienie_o_evencie.start()
 
 
 async def create_tables():
