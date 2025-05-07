@@ -390,6 +390,7 @@ class SignupPanel(discord.ui.View):
             success = await self.ask_for_nickname(interaction, user)
             if not success:
                 return
+            await self.update_message(interaction)
     
         if signups_locked:
             waiting_list.append(user)
@@ -402,6 +403,7 @@ class SignupPanel(discord.ui.View):
                 waiting_list.append(user)
             await self.update_message(interaction)
             await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
+
 
 
 
@@ -680,7 +682,7 @@ class SignupPanel(discord.ui.View):
 
 
     async def ask_for_nickname(self, interaction: discord.Interaction, user: discord.User) -> bool:
-        await interaction.response.send_message(
+        prompt = await interaction.followup.send(
             "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
             ephemeral=False
         )
@@ -692,15 +694,25 @@ class SignupPanel(discord.ui.View):
             nick_input = msg.content.strip()
             nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
             if not nicknames:
-                await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.", ephemeral=True, delete_after=5)
+                await msg.delete()
+                fail_msg = await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.")
+                await asyncio.sleep(5)
+                await fail_msg.delete()
                 return False
             await add_nicknames(user.id, nicknames)
             await msg.delete()
-            await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True, delete_after=5)
+            confirm = await interaction.followup.send("✅ Nick(i) zapisane.")
+            await asyncio.sleep(5)
+            await confirm.delete()
+            await prompt.delete()
             return True
         except asyncio.TimeoutError:
-            await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True, delete_after=5)
+            timeout_msg = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.")
+            await asyncio.sleep(5)
+            await timeout_msg.delete()
+            await prompt.delete()
             return False
+
 
 
 
