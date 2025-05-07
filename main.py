@@ -793,20 +793,11 @@ class SignupPanel(discord.ui.View):
             await prompt.delete()
             return False
 
-    except Exception as e:
-        error_msg = await channel.send(f"⚠️ Wystąpił błąd: {e}")
-        await asyncio.sleep(5)
-        await error_msg.delete()
-        return False
-
-
-
-
-
-
-
-
-
+        except Exception as e:
+            error_msg = await channel.send(f"⚠️ Wystąpił błąd: {e}")
+            await asyncio.sleep(5)
+            await error_msg.delete()
+            return False
 
 
 
