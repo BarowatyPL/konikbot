@@ -59,6 +59,9 @@ panel_channel = None
 ranking_mode = False
 enrollment_locked = False
 signups_locked = False
+player_nicknames = {}
+db_pool = None
+
 
 
 wczytaj_dane()
@@ -71,23 +74,55 @@ async def connect_to_db():
     global db
     db = await asyncpg.connect(os.getenv("DATABASE_URL"))
 
+
+db_pool = None
+
+async def connect_lol_nick_pool():
+    global db_pool
+    db_pool = await asyncpg.create_pool(os.getenv("postgresql://postgres:wBWAWYZVOmfpebntINEbWxXygJromLRU@maglev.proxy.rlwy.net:55312/railway"))
+
 @bot.event
 async def on_ready():
     await connect_to_db()
+    await connect_lol_nick_pool()
     await create_tables()
-    print(f'Zalogowano jako {bot.user.name}')
+    print(f'✅ Zalogowano jako {bot.user.name}')
     check_event_time.start()
     przypomnienie_o_evencie.start()
+
+
+async def create_tables():
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS lol_nicknames (
+                user_id BIGINT NOT NULL,
+                nickname TEXT NOT NULL,
+                PRIMARY KEY (user_id, nickname)
+            );
+        """)
+
+async def get_nicknames(user_id: int) -> list[str]:
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT nickname FROM lol_nicknames WHERE user_id = $1", user_id)
+        return [row["nickname"] for row in rows]
+
+async def add_nicknames(user_id: int, nicknames: list[str]):
+    async with db_pool.acquire() as conn:
+        for nick in nicknames:
+            await conn.execute(
+                "INSERT INTO lol_nicknames (user_id, nickname) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                user_id, nick
+            )
 
 
 @tasks.loop(seconds=60)
 async def check_event_time():
     global event_time, reminder_sent, tematyczne_event_time, tematyczne_reminder_sent
 
-    now = datetime.now() + timedelta(hours=2)  # Dopasowanie do CEST (UTC+2)
+    now = datetime.now() + timedelta(hours=2)
 
     if panel_channel is None:
-        return  # Jeśli nie mamy kanału, nie próbuj nic wysyłać
+        return
 
     # Główna lista
     if event_time and not reminder_sent:
@@ -259,7 +294,7 @@ async def regulamin(ctx):
 
 event_time = None  # dodane globalnie
 
-def generate_embed():
+async def generate_embed_async():
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
     lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signups_locked else "✅ **Zapisy na listę główną są otwarte.**"
@@ -273,13 +308,22 @@ def generate_embed():
 
     embed.description = f"{lock_status}\n{czas_wydarzenia}\n{ranking_info}"
 
-    signup_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(signups)) if signups else "Brak"
-    reserve_str = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(waiting_list)) if waiting_list else "Brak"
+    async def format_user(user):
+        nicknames = await get_nicknames(user.id)
+        nick_str = f" ({', '.join(nicknames)})" if nicknames else ""
+        return f"{user.mention}{nick_str}"
+
+    signup_lines = await asyncio.gather(*(format_user(user) for user in signups))
+    reserve_lines = await asyncio.gather(*(format_user(user) for user in waiting_list))
+
+    signup_str = "\n".join(f"{i+1}. {line}" for i, line in enumerate(signup_lines)) if signup_lines else "Brak"
+    reserve_str = "\n".join(f"{i+1}. {line}" for i, line in enumerate(reserve_lines)) if reserve_lines else "Brak"
 
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
 
     return embed
+
 
 
 
@@ -309,13 +353,21 @@ class SignupPanel(discord.ui.View):
     def __init__(self, *, timeout=None, message):
         super().__init__(timeout=timeout)
         self.message = message
+        
 
     @discord.ui.button(label="Zapisz", style=discord.ButtonStyle.success)
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
+    
         if user in signups or user in waiting_list:
             await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
             return
+    
+        nicknames = await get_nicknames(user.id)
+        if not nicknames:
+            success = await self.ask_for_nickname(interaction, user)
+            if not success:
+                return
     
         if signups_locked:
             waiting_list.append(user)
@@ -328,6 +380,7 @@ class SignupPanel(discord.ui.View):
                 waiting_list.append(user)
             await self.update_message(interaction)
             await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
+
 
     
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
@@ -346,12 +399,21 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary)
     async def reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
+    
         if user in signups or user in waiting_list:
             await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
             return
+    
+        nicknames = await get_nicknames(user.id)
+        if not nicknames:
+            success = await self.ask_for_nickname(interaction, user)
+            if not success:
+                return
+    
         waiting_list.append(user)
         await self.update_message(interaction)
         await log_to_discord(f"👤 {user.mention} sam zapisał się na listę rezerwową.")
+
     
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -410,6 +472,7 @@ class SignupPanel(discord.ui.View):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("Tylko administrator może dodawać graczy.", ephemeral=True, delete_after=5)
             return
+    
         await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True, delete_after=10)
     
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
@@ -418,11 +481,21 @@ class SignupPanel(discord.ui.View):
             if not msg.mentions:
                 await interaction.followup.send("Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
                 return
+    
             user = msg.mentions[0]
+    
             if user in signups or user in waiting_list:
                 await interaction.followup.send("Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
                 await msg.delete()
                 return
+    
+            nicknames = await get_nicknames(user.id)
+            if not nicknames:
+                success = await self.ask_for_nickname(interaction, user)
+                if not success:
+                    await msg.delete()
+                    return
+    
             if len(signups) < MAX_SIGNUPS:
                 signups.append(user)
                 await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy głównej.")
@@ -430,10 +503,12 @@ class SignupPanel(discord.ui.View):
                 await interaction.followup.send("Lista główna jest pełna.", ephemeral=True, delete_after=5)
                 await msg.delete()
                 return
+    
             await msg.delete()
             await self.update_message(interaction)
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+
     
     @discord.ui.button(label="📅 Dodaj do rezerwy", style=discord.ButtonStyle.secondary, row=1)
     async def add_to_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -573,12 +648,37 @@ class SignupPanel(discord.ui.View):
         await log_to_discord(f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
 
     async def update_message(self, interaction: discord.Interaction, log_click: bool = False):
-        embed = generate_embed()
+        embed = await generate_embed_async()
         await self.message.edit(embed=embed, view=self)
         await interaction.response.defer()
-
+    
         if log_click:
             await log_to_discord(f"👆 {interaction.user.mention} zmienił stan zapisów.")
+
+
+    async def ask_for_nickname(self, interaction: discord.Interaction, user: discord.User) -> bool:
+    await interaction.response.send_message(
+        "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
+        ephemeral=True
+    )
+
+    def check(msg): return msg.author.id == user.id and msg.channel == interaction.channel
+
+    try:
+        msg = await bot.wait_for("message", timeout=60.0, check=check)
+        nick_input = msg.content.strip()
+        nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
+        if not nicknames:
+            await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.", ephemeral=True, delete_after=5)
+            return False
+        await add_nicknames(user.id, nicknames)
+        await msg.delete()
+        await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True, delete_after=5)
+        return True
+    except asyncio.TimeoutError:
+        await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True, delete_after=5)
+        return False
+
 
 
 
