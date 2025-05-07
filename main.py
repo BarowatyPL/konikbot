@@ -316,25 +316,34 @@ async def generate_embed_async():
         czas_wydarzenia = "🕒 **Czas wydarzenia nie został jeszcze ustawiony.**"
 
     ranking_info = "🏆 **Rankingowa**" if ranking_mode else "🎮 **Nierankingowa**"
+
     embed.description = f"{lock_status}\n{czas_wydarzenia}\n{ranking_info}"
 
     # Lista główna
     if signups:
-        signup_str = ""
+        signup_lines = []
         for i, user in enumerate(signups):
             nicknames = await get_nicknames(user.id)
-            formatted_nicks = ", ".join(f"`{nick}`" for nick in nicknames) if nicknames else "*brak nicku*"
-            signup_str += f"{i+1}. {user.mention} – {formatted_nicks}\n"
+            if nicknames:
+                formatted_nicks = "```\n" + "\n".join(nicknames) + "\n```"
+            else:
+                formatted_nicks = "*brak nicku*"
+            signup_lines.append(f"{i+1}. {user.mention} – {formatted_nicks}")
+        signup_str = "\n".join(signup_lines)
     else:
         signup_str = "Brak"
 
     # Lista rezerwowa
     if waiting_list:
-        reserve_str = ""
+        reserve_lines = []
         for i, user in enumerate(waiting_list):
             nicknames = await get_nicknames(user.id)
-            formatted_nicks = ", ".join(f"`{nick}`" for nick in nicknames) if nicknames else "*brak nicku*"
-            reserve_str += f"{i+1}. {user.mention} – {formatted_nicks}\n"
+            if nicknames:
+                formatted_nicks = "```\n" + "\n".join(nicknames) + "\n```"
+            else:
+                formatted_nicks = "*brak nicku*"
+            reserve_lines.append(f"{i+1}. {user.mention} – {formatted_nicks}")
+        reserve_str = "\n".join(reserve_lines)
     else:
         reserve_str = "Brak"
 
@@ -342,6 +351,7 @@ async def generate_embed_async():
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
 
     return embed
+
 
 
 
