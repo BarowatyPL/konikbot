@@ -682,39 +682,37 @@ class SignupPanel(discord.ui.View):
 
 
     async def ask_for_nickname(self, interaction: discord.Interaction, user: discord.User) -> bool:
-        prompt = await interaction.followup.send(
+        await interaction.response.send_message(
             "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
-            ephemeral=False
+            ephemeral=True
         )
-    
+
         def check(msg): return msg.author.id == user.id and msg.channel == interaction.channel
-    
+
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             nick_input = msg.content.strip()
             nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
             await msg.delete()
-    
+
             if not nicknames:
-                fail = await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.")
+                fail = await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.", ephemeral=True)
                 await asyncio.sleep(5)
                 await fail.delete()
-                await prompt.delete()
                 return False
-    
+
             await add_nicknames(user.id, nicknames)
-            success = await interaction.followup.send("✅ Nick(i) zapisane.")
+            success = await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True)
             await asyncio.sleep(5)
             await success.delete()
-            await prompt.delete()
             return True
-    
+
         except asyncio.TimeoutError:
-            timeout = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.")
+            timeout = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True)
             await asyncio.sleep(5)
             await timeout.delete()
-            await prompt.delete()
             return False
+
 
 
 
