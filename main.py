@@ -80,6 +80,9 @@ db_pool = None
 async def connect_lol_nick_pool():
     global db_pool
     db_pool = await asyncpg.create_pool(os.getenv("postgresql://postgres:wBWAWYZVOmfpebntINEbWxXygJromLRU@maglev.proxy.rlwy.net:55312/railway"))
+    print("✅ db_pool połączone:", db_pool)
+
+
 
 @bot.event
 async def on_ready():
@@ -102,9 +105,13 @@ async def create_tables():
         """)
 
 async def get_nicknames(user_id: int) -> list[str]:
+    if db_pool is None:
+        print("❌ db_pool nie jest połączone!")
+        return []
     async with db_pool.acquire() as conn:
         rows = await conn.fetch("SELECT nickname FROM lol_nicknames WHERE user_id = $1", user_id)
         return [row["nickname"] for row in rows]
+
 
 async def add_nicknames(user_id: int, nicknames: list[str]):
     async with db_pool.acquire() as conn:
