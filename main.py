@@ -661,23 +661,23 @@ class SignupPanel(discord.ui.View):
             "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
             ephemeral=True
         )
-
-    def check(msg): return msg.author.id == user.id and msg.channel == interaction.channel
-
-    try:
-        msg = await bot.wait_for("message", timeout=60.0, check=check)
-        nick_input = msg.content.strip()
-        nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
-        if not nicknames:
-            await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.", ephemeral=True, delete_after=5)
+        def check(msg): 
+            return msg.author.id == user.id and msg.channel == interaction.channel
+    
+        try:
+            msg = await bot.wait_for("message", timeout=60.0, check=check)
+            nick_input = msg.content.strip()
+            nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
+            if not nicknames:
+                await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.", ephemeral=True, delete_after=5)
+                return False
+            await add_nicknames(user.id, nicknames)
+            await msg.delete()
+            await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True, delete_after=5)
+            return True
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True, delete_after=5)
             return False
-        await add_nicknames(user.id, nicknames)
-        await msg.delete()
-        await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True, delete_after=5)
-        return True
-    except asyncio.TimeoutError:
-        await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True, delete_after=5)
-        return False
 
 
 
