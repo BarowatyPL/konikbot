@@ -325,7 +325,7 @@ async def generate_embed_async():
         for i, user in enumerate(signups):
             nicknames = await get_nicknames(user.id)
             if nicknames:
-                formatted_nicks = "```\n" + "\n".join(nicknames) + "\n```"
+                formatted_nicks = ", ".join(f"`{n}`" for n in nicknames)
             else:
                 formatted_nicks = "*brak nicku*"
             signup_lines.append(f"{i+1}. {user.mention} – {formatted_nicks}")
@@ -339,7 +339,7 @@ async def generate_embed_async():
         for i, user in enumerate(waiting_list):
             nicknames = await get_nicknames(user.id)
             if nicknames:
-                formatted_nicks = "```\n" + "\n".join(nicknames) + "\n```"
+                formatted_nicks = ", ".join(f"`{n}`" for n in nicknames)
             else:
                 formatted_nicks = "*brak nicku*"
             reserve_lines.append(f"{i+1}. {user.mention} – {formatted_nicks}")
