@@ -391,7 +391,6 @@ class SignupPanel(discord.ui.View):
         user = interaction.user
     
         if user in signups or user in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
             return
     
         nicknames = await get_nicknames(user.id)
@@ -403,20 +402,17 @@ class SignupPanel(discord.ui.View):
     
         if signups_locked:
             waiting_list.append(user)
-            await self.update_message(interaction)
             await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (główna zablokowana).")
         else:
             if len(signups) < MAX_SIGNUPS:
                 signups.append(user)
             else:
                 waiting_list.append(user)
-            await self.update_message(interaction)
             await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
-
-
-
-
     
+        await self.update_message(interaction)
+
+
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
@@ -425,28 +421,11 @@ class SignupPanel(discord.ui.View):
         elif user in waiting_list:
             waiting_list.remove(user)
         else:
-            await interaction.response.send_message("Nie jesteś zapisany.", ephemeral=True, delete_after=5)
             return
-        await self.update_message(interaction)
+    
         await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
-    
-    @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary)
-    async def reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user = interaction.user
-    
-        if user in signups or user in waiting_list:
-            await interaction.response.send_message("Już jesteś zapisany!", ephemeral=True, delete_after=5)
-            return
-    
-        nicknames = await get_nicknames(user.id)
-        if not nicknames:
-            success = await self.ask_for_nickname(interaction, user)
-            if not success:
-                return
-    
-        waiting_list.append(user)
         await self.update_message(interaction)
-        await log_to_discord(f"👤 {user.mention} sam zapisał się na listę rezerwową.")
+
 
     
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
@@ -477,37 +456,10 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
     async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może usuwać graczy.", ephemeral=True, delete_after=5)
-            return
-        await interaction.response.send_message("Podaj @użytkownika do usunięcia:", ephemeral=True, delete_after=10)
-    
-        def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
-        try:
-            msg = await bot.wait_for("message", timeout=30.0, check=check)
-            if not msg.mentions:
-                await interaction.followup.send("Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
-                return
-            user = msg.mentions[0]
-            if user in signups:
-                signups.remove(user)
-            elif user in waiting_list:
-                waiting_list.remove(user)
-            else:
-                await interaction.followup.send("Użytkownik nie znajduje się na żadnej liście.", ephemeral=True, delete_after=5)
-                return
-            await msg.delete()
-            await self.update_message(interaction)
-            await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
-        except asyncio.TimeoutError:
-            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
-    
-    @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
-    async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może dodawać graczy.", ephemeral=True, delete_after=5)
             return
     
-        await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True)
+        await interaction.response.send_message("Podaj @użytkownika do usunięcia:", ephemeral=True)
+        prompt = await interaction.original_response()
     
         def check(msg):
             return msg.author == interaction.user and msg.channel == interaction.channel
@@ -515,13 +467,50 @@ class SignupPanel(discord.ui.View):
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
             if not msg.mentions:
-                await interaction.followup.send("❌ Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
+                await prompt.delete()
+                await msg.delete()
                 return
     
             user = msg.mentions[0]
+            if user in signups:
+                signups.remove(user)
+            elif user in waiting_list:
+                waiting_list.remove(user)
+            else:
+                await prompt.delete()
+                await msg.delete()
+                return
     
+            await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
+            await self.update_message(interaction)
+            await prompt.delete()
+            await msg.delete()
+    
+        except asyncio.TimeoutError:
+            await prompt.delete()
+
+    
+    @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
+    async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return
+    
+        await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True)
+        prompt = await interaction.original_response()
+    
+        def check(msg):
+            return msg.author == interaction.user and msg.channel == interaction.channel
+    
+        try:
+            msg = await bot.wait_for("message", timeout=30.0, check=check)
+            if not msg.mentions:
+                await prompt.delete()
+                await msg.delete()
+                return
+    
+            user = msg.mentions[0]
             if user in signups or user in waiting_list:
-                await interaction.followup.send("✅ Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
+                await prompt.delete()
                 await msg.delete()
                 return
     
@@ -529,6 +518,7 @@ class SignupPanel(discord.ui.View):
             if not nicknames:
                 success = await self.ask_for_nickname_admin(interaction.channel, user)
                 if not success:
+                    await prompt.delete()
                     await msg.delete()
                     return
     
@@ -536,88 +526,53 @@ class SignupPanel(discord.ui.View):
                 signups.append(user)
                 await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy głównej.")
             else:
-                await interaction.followup.send("🚫 Lista główna jest pełna.", ephemeral=True, delete_after=5)
+                await prompt.delete()
                 await msg.delete()
                 return
     
-            await msg.delete()
             await self.update_message(interaction)
+            await prompt.delete()
+            await msg.delete()
     
         except asyncio.TimeoutError:
-            await interaction.followup.send("⏳ Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+            await prompt.delete()
+
 
 
     
-    @discord.ui.button(label="📅 Dodaj do rezerwy", style=discord.ButtonStyle.secondary, row=1)
-    async def add_to_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
+    async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może dodawać do rezerwy.", ephemeral=True, delete_after=5)
             return
     
-        await interaction.response.send_message("Podaj @użytkownika do dodania na listę rezerwową:", ephemeral=True)
+        if len(signups) >= MAX_SIGNUPS:
+            return
+    
+        await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy:", ephemeral=True)
         prompt = await interaction.original_response()
     
         def check(msg):
-            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
+            return msg.author == interaction.user and msg.channel == interaction.channel
     
         try:
             msg = await bot.wait_for("message", timeout=30.0, check=check)
             if not msg.mentions:
-                error = await interaction.followup.send("Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
-                await asyncio.sleep(5)
-                try:
-                    await prompt.delete()
-                    await msg.delete()
-                    await error.delete()
-                except:
-                    pass
+                await prompt.delete()
+                await msg.delete()
                 return
     
             user = msg.mentions[0]
+            if user in waiting_list:
+                waiting_list.remove(user)
+                signups.append(user)
+                await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
+                await self.update_message(interaction)
     
-            if user in signups or user in waiting_list:
-                info = await interaction.followup.send("Ten użytkownik już jest zapisany.", ephemeral=True, delete_after=5)
-                await asyncio.sleep(5)
-                try:
-                    await prompt.delete()
-                    await msg.delete()
-                    await info.delete()
-                except:
-                    pass
-                return
-    
-            nicknames = await get_nicknames(user.id)
-            if not nicknames:
-                success = await self.ask_for_nickname_admin(interaction.channel, user)
-                if not success:
-                    try:
-                        await prompt.delete()
-                        await msg.delete()
-                    except:
-                        pass
-                    return
-    
-            waiting_list.append(user)
-            await self.update_message(interaction)
-            await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy rezerwowej (ręcznie).")
-    
-            try:
-                await prompt.delete()
-                await msg.delete()
-            except:
-                pass
+            await prompt.delete()
+            await msg.delete()
     
         except asyncio.TimeoutError:
-            timeout_msg = await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
-            await asyncio.sleep(5)
-            try:
-                await prompt.delete()
-                await timeout_msg.delete()
-            except:
-                pass
-
-
-
+            await prompt.delete()
 
 
     
@@ -652,7 +607,6 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="🪃 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
     async def clear_lists(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może czyścić listy.", ephemeral=True, delete_after=5)
             return
     
         signups.clear()
@@ -663,75 +617,63 @@ class SignupPanel(discord.ui.View):
         reminder_sent = False
     
         await self.update_message(interaction, log_click=True)
-        await interaction.response.send_message("Listy oraz godzina wydarzenia zostały wyczyszczone.", ephemeral=True, delete_after=5)
         await log_to_discord(f"👤 {interaction.user.mention} wyczyścił listy i usunął godzinę wydarzenia.")
+
+
     
     
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
     async def ping_main(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=5)
             return
         if not signups:
-            await interaction.response.send_message("Lista główna jest pusta.", ephemeral=True, delete_after=5)
             return
+    
         mentions = " ".join(user.mention for user in signups)
-        await interaction.response.send_message(f"Pinguję listę główną:\n{mentions}", delete_after=300)
+        await interaction.channel.send(f"📢 Lista główna została pingnięta przez {interaction.user.mention}:\n{mentions}")
         await log_to_discord(f"👤 {interaction.user.mention} pingnął listę główną.")
+
 
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=5)
             return
-    
         if not waiting_list:
-            await interaction.response.send_message("Lista rezerwowa jest pusta.", ephemeral=True, delete_after=10)
             return
     
         channel_id = 1367556641419034745
         target_channel = interaction.guild.get_channel(channel_id)
     
-        if target_channel is None:
-            await interaction.response.send_message("Nie mogę znaleźć kanału docelowego.", ephemeral=True)
-            return
-    
-        mentions = " ".join(user.mention for user in waiting_list)
-        await target_channel.send(f"📢 Lista rezerwowa została pingnięta przez {interaction.user.mention}:\n{mentions}")
-        await interaction.response.send_message("Ping został wysłany na kanał.", ephemeral=True, delete_after=5)
-        await log_to_discord(f"👤 {interaction.user.mention} pingnął listę rezerwową w <#{channel_id}>.")
+        if target_channel:
+            mentions = " ".join(user.mention for user in waiting_list)
+            await target_channel.send(f"📢 Lista rezerwowa została pingnięta przez {interaction.user.mention}:\n{mentions}")
+            await log_to_discord(f"👤 {interaction.user.mention} pingnął listę rezerwową w <#{channel_id}>.")
+
 
     
     @discord.ui.button(label="🎮 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
     async def toggle_ranking(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może zmieniać tryb gry.", ephemeral=True, delete_after=5)
             return
+    
         global ranking_mode
         ranking_mode = not ranking_mode
         await self.update_message(interaction, log_click=True)
-        await interaction.response.send_message(
-            f"✅ Tryb gry zmieniony na: {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}", ephemeral=True, delete_after=5
-        )
         await log_to_discord(f"👤 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}.")
+
 
     @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=3)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może przełączać zapisy.", ephemeral=True, delete_after=5)
             return
     
         global signups_locked
         signups_locked = not signups_locked
     
         button.label = "✅ Wznów zapisy" if signups_locked else "🔒 Zatrzymaj zapisy"
-    
         await self.update_message(interaction)
-        await interaction.response.send_message(
-            f"{'🔒' if signups_locked else '✅'} Zapisy na listę główną zostały {'zatrzymane' if signups_locked else 'wznowione'}.",
-            ephemeral=True, delete_after=5
-        )
         await log_to_discord(f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
+
 
     async def update_message(self, interaction: discord.Interaction, log_click: bool = False):
         embed = await generate_embed_async()
