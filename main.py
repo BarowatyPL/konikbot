@@ -93,6 +93,7 @@ async def on_ready():
     await connect_to_db()
     await connect_lol_nick_pool()
     await create_tables()
+    refresh_panel.start()
     print(f'✅ Zalogowano jako {bot.user.name}')
     check_event_time.start()
 
@@ -1133,6 +1134,18 @@ async def logi(ctx, liczba: int = 10):
     await ctx.send(f"📄 **Ostatnie {liczba} logów:**\n```{formatted}```")
 
 
+# ---------- INNE ---------- #
+
+@tasks.loop(minutes=5)
+async def refresh_panel():
+    if panel_channel:
+        try:
+            embed = await generate_embed_async()
+            message = await panel_channel.send(embed=embed)
+            view = SignupPanel(message=message)
+            await message.edit(view=view)
+        except Exception as e:
+            print(f"Błąd podczas odświeżania panelu: {e}")
 
 
 
