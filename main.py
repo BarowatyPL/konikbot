@@ -95,7 +95,6 @@ async def on_ready():
     await create_tables()
     print(f'✅ Zalogowano jako {bot.user.name}')
     check_event_time.start()
-    przypomnienie_o_evencie.start()
 
 
 async def create_tables():
@@ -252,7 +251,7 @@ async def info(ctx):
 async def opis(ctx):
     """Wyświetla wersję bota i jego przeznaczenie."""
     embed = discord.Embed(
-        title="🤖 KonikBOT – Wersja 5.0",
+        title="🤖 KonikBOT – Wersja 5.1",
         description=(
             "KonikBOT stworzony do organizowania gier customowych w League of Legends.\n\n"
             "Umożliwia tworzenie zapisów, organizowanie gier tematycznych z zachowaniem ról.\n"
@@ -359,7 +358,7 @@ async def generate_embed_async():
 
 
 def generate_tematyczne_embed():
-    embed = discord.Embed(title=f"Dzisiejsze skiny: {tematyczne_nazwa}", color=discord.Color.purple())
+    embed = discord.Embed(title=f"Dzisiejsze skiny: {seria1_nazwa} vs {seria2_nazwa}", color=discord.Color.purple())
 
     if tematyczne_event_time:
         embed.description = f"🕒 **Czas wydarzenia:** {tematyczne_event_time.strftime('%H:%M')}"
@@ -431,9 +430,9 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=5)
+            await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=10)
             return
-        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=5)
+        await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=10)
     
         def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
         try:
@@ -449,9 +448,9 @@ class SignupPanel(discord.ui.View):
             await self.update_message(interaction)
             await log_to_discord(f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
         except asyncio.TimeoutError:
-            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
+            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=10)
         except ValueError:
-            await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True, delete_after=5)
+            await interaction.followup.send("Niepoprawny format godziny.", ephemeral=True, delete_after=10)
     
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
     async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -574,35 +573,6 @@ class SignupPanel(discord.ui.View):
         except asyncio.TimeoutError:
             await prompt.delete()
 
-
-    
-    @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
-    async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Tylko administrator może przenosić graczy.", ephemeral=True, delete_after=5)
-            return
-        if len(signups) >= MAX_SIGNUPS:
-            await interaction.response.send_message("Lista główna jest już pełna.", ephemeral=True, delete_after=5)
-            return
-        await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy:", ephemeral=True, delete_after=10)
-    
-        def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
-        try:
-            msg = await bot.wait_for("message", timeout=30.0, check=check)
-            if not msg.mentions:
-                await interaction.followup.send("Musisz oznaczyć użytkownika.", ephemeral=True, delete_after=5)
-                return
-            user = msg.mentions[0]
-            if user in waiting_list:
-                waiting_list.remove(user)
-                signups.append(user)
-                await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
-                await msg.delete()
-                await self.update_message(interaction)
-            else:
-                await interaction.followup.send("Użytkownik nie znajduje się na liście rezerwowej.", ephemeral=True, delete_after=5)
-        except asyncio.TimeoutError:
-            await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True, delete_after=5)
     
     @discord.ui.button(label="🪃 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
     async def clear_lists(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -618,8 +588,6 @@ class SignupPanel(discord.ui.View):
     
         await self.update_message(interaction, log_click=True)
         await log_to_discord(f"👤 {interaction.user.mention} wyczyścił listy i usunął godzinę wydarzenia.")
-
-
     
     
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
@@ -1059,11 +1027,11 @@ async def dodajnick(ctx, member: discord.Member = None, *, nicknames: str = None
 
     nickname_list = [n.strip() for n in nicknames.split(",") if n.strip()]
     if not nickname_list:
-        await ctx.send("❌ Nie podano żadnego nicku.", delete_after=5)
+        await ctx.send("❌ Nie podano żadnego nicku.", delete_after=10)
         return
 
     await add_nicknames(member.id, nickname_list)
-    await ctx.send(f"✅ Dodano {len(nickname_list)} nick(ów) dla {member.mention}.", delete_after=5)
+    await ctx.send(f"✅ Dodano {len(nickname_list)} nick(ów) dla {member.mention}.", delete_after=10)
 
 
 
@@ -1082,9 +1050,9 @@ async def usunnick(ctx, member: discord.Member = None, *, nickname: str = None):
             member.id, nickname
         )
         if result.endswith("0"):
-            await ctx.send(f"❌ Nick `{nickname}` nie został znaleziony u {member.mention}.", delete_after=5)
+            await ctx.send(f"❌ Nick `{nickname}` nie został znaleziony u {member.mention}.", delete_after=10)
         else:
-            await ctx.send(f"🏀 Nick `{nickname}` został usunięty dla {member.mention}.", delete_after=5)
+            await ctx.send(f"🏀 Nick `{nickname}` został usunięty dla {member.mention}.", delete_after=10)
 
 
 @bot.command(help="Wyświetla zapisane nicki gracza. Jeśli nie podasz gracza, pokaże Twoje.\nPrzykład: !nicki @nick_dc")
@@ -1095,7 +1063,7 @@ async def nicki(ctx, member: discord.Member = None):
     nicknames = await get_nicknames(target.id)
 
     if not nicknames:
-        await ctx.send(f"🔎 {target.mention} nie ma zapisanych żadnych nicków.", delete_after=5)
+        await ctx.send(f"🔎 {target.mention} nie ma zapisanych żadnych nicków.", delete_after=10)
     else:
         formatted = "\n".join(f"`{nick}`" for nick in nicknames)
         await ctx.send(f"📋 Nicki zapisane dla {target.mention}:\n{formatted}", delete_after=10)
