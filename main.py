@@ -93,7 +93,7 @@ async def on_ready():
     await connect_to_db()
     await connect_lol_nick_pool()
     await create_tables()
-    refresh_panel.start()
+    # refresh_panel.start()
     print(f'✅ Zalogowano jako {bot.user.name}')
     check_event_time.start()
 
@@ -107,6 +107,14 @@ async def create_tables():
                 PRIMARY KEY (user_id, nickname)
             );
         """)
+    async with db_pool.acquire() as conn:
+    await conn.execute('''
+        CREATE TABLE IF NOT EXISTS ostrzezenia (
+            user_id BIGINT PRIMARY KEY,
+            liczba INTEGER NOT NULL DEFAULT 0
+        );
+    ''')
+
 
 async def get_nicknames(user_id: int) -> list[str]:
     if db_pool is None:
@@ -328,7 +336,13 @@ async def generate_embed_async():
                 formatted_nicks = ", ".join(f"`{n}`" for n in nicknames)
             else:
                 formatted_nicks = "*brak nicku*"
-            signup_lines.append(f"{i+1}. {user.mention} – {formatted_nicks}")
+
+            async with db_pool.acquire() as conn:
+                result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
+                liczba = result["liczba"] if result else 0
+                status = "ban" if liczba >= 4 else f"{liczba}/3"
+
+            signup_lines.append(f"{status} • {user.mention} – {formatted_nicks}")
         signup_str = "\n".join(signup_lines)
     else:
         signup_str = "Brak"
@@ -342,7 +356,13 @@ async def generate_embed_async():
                 formatted_nicks = ", ".join(f"`{n}`" for n in nicknames)
             else:
                 formatted_nicks = "*brak nicku*"
-            reserve_lines.append(f"{i+1}. {user.mention} – {formatted_nicks}")
+
+            async with db_pool.acquire() as conn:
+                result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
+                liczba = result["liczba"] if result else 0
+                status = "ban" if liczba >= 4 else f"{liczba}/3"
+
+            reserve_lines.append(f"{status} • {user.mention} – {formatted_nicks}")
         reserve_str = "\n".join(reserve_lines)
     else:
         reserve_str = "Brak"
@@ -351,6 +371,7 @@ async def generate_embed_async():
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
 
     return embed
+
 
 
 
@@ -389,6 +410,17 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Zapisz", style=discord.ButtonStyle.success)
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
+
+        # Sprawdzenie ostrzeżeń
+        async with db_pool.acquire() as conn:
+            result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
+            if result and result["liczba"] >= 4:
+                await interaction.response.send_message(
+                    "🚫 Masz bana na customy. Skontaktuj się z administracją.",
+                    ephemeral=True
+                )
+                return
+
     
         if user in signups or user in waiting_list:
             return
@@ -1146,6 +1178,31 @@ async def refresh_panel():
             await message.edit(view=view)
         except Exception as e:
             print(f"Błąd podczas odświeżania panelu: {e}")
+
+@bot.command(name="bancustom")
+@commands.has_permissions(administrator=True)
+async def bancustom(ctx, member: discord.Member):
+    async with db_pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", member.id)
+        liczba = result["liczba"] if result else 0
+        liczba += 1
+
+        await conn.execute(
+            "INSERT INTO ostrzezenia (user_id, liczba) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET liczba = $2",
+            member.id, liczba
+        )
+
+        status = "❌ **BAN!**" if liczba >= 4 else f"{liczba}/3"
+        await ctx.send(f"{member.mention} - {status}")
+        
+@bot.command(name="usunbana")
+@commands.has_permissions(administrator=True)
+async def usunbana(ctx, member: discord.Member):
+    async with db_pool.acquire() as conn:
+        await conn.execute("DELETE FROM ostrzezenia WHERE user_id = $1", member.id)
+    await ctx.send(f"✅ Ostrzeżenia dla {member.mention} zostały usunięte.")
+
+
 
 
 
