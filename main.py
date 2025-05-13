@@ -108,12 +108,12 @@ async def create_tables():
             );
         """)
     async with db_pool.acquire() as conn:
-    await conn.execute('''
-        CREATE TABLE IF NOT EXISTS ostrzezenia (
-            user_id BIGINT PRIMARY KEY,
-            liczba INTEGER NOT NULL DEFAULT 0
-        );
-    ''')
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS ostrzezenia (
+                user_id BIGINT PRIMARY KEY,
+                liczba INTEGER NOT NULL DEFAULT 0
+            );
+        ''')
 
 
 async def get_nicknames(user_id: int) -> list[str]:
