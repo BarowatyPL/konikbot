@@ -1179,9 +1179,25 @@ async def refresh_panel():
         except Exception as e:
             print(f"Błąd podczas odświeżania panelu: {e}")
 
+async def odswiez_panel():
+    if panel_channel:
+        try:
+            embed = await generate_embed_async()
+            message = await panel_channel.send(embed=embed)
+            view = SignupPanel(message=message)
+            await message.edit(view=view)
+        except Exception as e:
+            print(f"❌ Błąd podczas odświeżania panelu: {e}")
+
+
 @bot.command(name="bancustom")
 @commands.has_permissions(administrator=True)
 async def bancustom(ctx, member: discord.Member):
+    try:
+        await ctx.message.delete(delay=5)
+    except discord.Forbidden:
+        pass
+
     async with db_pool.acquire() as conn:
         result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", member.id)
         liczba = result["liczba"] if result else 0
@@ -1192,15 +1208,27 @@ async def bancustom(ctx, member: discord.Member):
             member.id, liczba
         )
 
-        status = "❌ **BAN!**" if liczba >= 4 else f"{liczba}/3"
-        await ctx.send(f"{member.mention} - {status}")
+        status = "ban" if liczba >= 4 else f"{liczba}/3"
+
+        await log_to_discord(f"🚫 {ctx.author.mention} dał `bancustom` dla {member.mention} – teraz ma: **{status}**")
+
+    await odswiez_panel()
+
         
 @bot.command(name="usunbana")
 @commands.has_permissions(administrator=True)
 async def usunbana(ctx, member: discord.Member):
+    try:
+        await ctx.message.delete(delay=5)
+    except discord.Forbidden:
+        pass
+
     async with db_pool.acquire() as conn:
         await conn.execute("DELETE FROM ostrzezenia WHERE user_id = $1", member.id)
-    await ctx.send(f"✅ Ostrzeżenia dla {member.mention} zostały usunięte.")
+
+    await log_to_discord(f"✅ {ctx.author.mention} usunął ostrzeżenia dla {member.mention}")
+    await odswiez_panel()
+
 
 
 
