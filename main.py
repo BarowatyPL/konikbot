@@ -62,7 +62,7 @@ enrollment_locked = False
 signups_locked = False
 player_nicknames = {}
 db_pool = None
-
+last_click_times = {}  # user_id: datetime
 
 
 wczytaj_dane()
@@ -261,7 +261,7 @@ async def info(ctx):
 async def opis(ctx):
     """Wyświetla wersję bota i jego przeznaczenie."""
     embed = discord.Embed(
-        title="🤖 KonikBOT – Wersja 5.1",
+        title="🤖 KonikBOT – Wersja 5.3",
         description=(
             "KonikBOT stworzony do organizowania gier customowych w League of Legends.\n\n"
             "Umożliwia tworzenie zapisów, organizowanie gier tematycznych z zachowaniem ról.\n"
@@ -411,7 +411,18 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Zapisz", style=discord.ButtonStyle.success)
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
-
+        now = datetime.utcnow()
+        cooldown = 10  # sekundy
+    
+        if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
+            await interaction.response.send_message(
+                f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.",
+                ephemeral=True
+            )
+            return
+    
+        last_click_times[user.id] = now
+    
         # Sprawdzenie ostrzeżeń
         async with db_pool.acquire() as conn:
             result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
@@ -421,7 +432,6 @@ class SignupPanel(discord.ui.View):
                     ephemeral=True
                 )
                 return
-
     
         if user in signups or user in waiting_list:
             return
@@ -446,9 +456,22 @@ class SignupPanel(discord.ui.View):
         await self.update_message(interaction)
 
 
+
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
+        now = datetime.utcnow()
+        cooldown = 10  # sekundy
+    
+        if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
+            await interaction.response.send_message(
+                f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.",
+                ephemeral=True
+            )
+            return
+    
+        last_click_times[user.id] = now
+    
         if user in signups:
             signups.remove(user)
         elif user in waiting_list:
@@ -458,6 +481,7 @@ class SignupPanel(discord.ui.View):
     
         await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
         await self.update_message(interaction)
+
 
 
     
