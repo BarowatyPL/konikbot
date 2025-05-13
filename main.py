@@ -56,6 +56,7 @@ bot.zwyciezca = None
 signup_ids = []
 reminder_sent = False
 panel_channel = None
+panel_message = None
 ranking_mode = False
 enrollment_locked = False
 signups_locked = False
@@ -779,14 +780,13 @@ class SignupPanel(discord.ui.View):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def panel(ctx):
-    """Pokazuje panel zapisów z przyciskami."""
-    global panel_channel
+    global panel_channel, panel_message
     panel_channel = ctx.channel
     embed = await generate_embed_async()
-    message = await ctx.send(embed=embed)        
-    view = SignupPanel(message=message)           
-    await message.edit(view=view)                 
-
+    panel_message = await ctx.send(embed=embed)
+    view = SignupPanel(message=panel_message)
+    await panel_message.edit(view=view)
+             
 
 
 @bot.command(name="lista")
@@ -1180,14 +1180,15 @@ async def refresh_panel():
             print(f"Błąd podczas odświeżania panelu: {e}")
 
 async def odswiez_panel():
-    if panel_channel:
+    global panel_message
+    if panel_message:
         try:
             embed = await generate_embed_async()
-            message = await panel_channel.send(embed=embed)
-            view = SignupPanel(message=message)
-            await message.edit(view=view)
+            view = SignupPanel(message=panel_message)
+            await panel_message.edit(embed=embed, view=view)
         except Exception as e:
-            print(f"❌ Błąd podczas odświeżania panelu: {e}")
+            print(f"❌ Błąd przy odświeżaniu panelu: {e}")
+
 
 
 @bot.command(name="bancustom")
