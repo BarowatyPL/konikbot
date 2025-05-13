@@ -482,6 +482,45 @@ class SignupPanel(discord.ui.View):
         await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
         await self.update_message(interaction)
 
+    @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
+    async def signup_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user = interaction.user
+        now = datetime.utcnow()
+        cooldown = 10  # sekundy
+    
+        if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
+            await interaction.response.send_message(
+                f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.",
+                ephemeral=True
+            )
+            return
+    
+        last_click_times[user.id] = now
+    
+        # Sprawdzenie ostrzeżeń
+        async with db_pool.acquire() as conn:
+            result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
+            if result and result["liczba"] >= 4:
+                await interaction.response.send_message(
+                    "🚫 Masz bana na customy. Skontaktuj się z administracją.",
+                    ephemeral=True
+                )
+                return
+    
+        if user in signups or user in waiting_list:
+            await interaction.response.send_message("❗ Już jesteś zapisany na listę.", ephemeral=True)
+            return
+    
+        nicknames = await get_nicknames(user.id)
+        if not nicknames:
+            success = await self.ask_for_nickname(interaction, user)
+            if not success:
+                return
+            await self.update_message(interaction)
+    
+        waiting_list.append(user)
+        await log_to_discord(f"👤 {user.mention} zapisał się bezpośrednio na **listę rezerwową** (przycisk).")
+        await self.update_message(interaction)
 
 
     
@@ -667,7 +706,7 @@ class SignupPanel(discord.ui.View):
         if not waiting_list:
             return
     
-        channel_id = 1367556641419034745
+        channel_id = 1371869603227242537
         target_channel = interaction.guild.get_channel(channel_id)
     
         if target_channel:
