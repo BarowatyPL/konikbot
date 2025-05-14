@@ -365,6 +365,10 @@ async def generate_embed_async():
         reserve_str = "Brak"
 
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
+    embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
+
+    return embed
+
 
 
 
