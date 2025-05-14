@@ -11,8 +11,8 @@ from flask import Flask
 from threading import Thread
 from elo_mvp_system import przetworz_mecz, ranking, profil, wczytaj_dane, zapisz_dane, PUNKTY_ELO, przewidywana_szansa
 from collections import Counter
-from discord.ui import View, Select
-from discord import SelectOption, Interaction
+from discord.ui import View, Button
+from discord import Interaction, ButtonStyle
 
 # Flask do keep-alive
 app = Flask('')
@@ -242,106 +242,77 @@ RANGI = [
     "Emerald", "Diamond", "Master", "Grandmaster", "Challenger"
 ]
 
-class UstawRangęView(View):
-    def __init__(self, user: discord.User, nicknames: list[str]):
+class RankingPanelView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Ustaw rangę", style=ButtonStyle.primary, custom_id="ustaw_range_button")
+    async def ustaw_range(self, interaction: Interaction, button: Button):
+        nicki = await get_nicknames(interaction.user.id)
+        nicknames_only = [n for n, _ in nicki]
+
+        if not nicknames_only:
+            return await interaction.response.send_message("❌ Nie masz żadnych dodanych nicków. Użyj `!dodajnick`.", ephemeral=True)
+
+        view = UstawRangaDropdownView(interaction.user, nicknames_only)
+        await interaction.response.send_message("🎯 Wybierz nick i przypisz mu rangę:", view=view, ephemeral=True)
+        
+class UstawRangaDropdownView(View):
+    def __init__(self, user, nicki):
         super().__init__(timeout=60)
         self.user = user
-        self.nicknames = nicknames
-        self.wybrany_nick = None
+        self.selected_nick = None
 
         self.nick_select = Select(
-            placeholder="🔹 Wybierz nick, którego rangę chcesz ustawić",
-            options=[SelectOption(label=nick) for nick in nicknames]
+            placeholder="🔹 Wybierz swój nick",
+            options=[SelectOption(label=n) for n in nicki],
+            custom_id="nick_select"
         )
         self.nick_select.callback = self.select_nick
         self.add_item(self.nick_select)
 
         self.rank_select = Select(
             placeholder="🏅 Wybierz rangę",
-            options=[SelectOption(label=rank) for rank in RANGI]
+            options=[SelectOption(label=r) for r in RANGI],
+            custom_id="rank_select"
         )
         self.rank_select.callback = self.select_rank
         self.add_item(self.rank_select)
 
     async def select_nick(self, interaction: Interaction):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("⛔ To nie jest Twój panel.", ephemeral=True)
+            return await interaction.response.send_message("⛔ To nie Twój panel.", ephemeral=True)
 
-        self.wybrany_nick = self.nick_select.values[0]
-        await interaction.response.send_message(f"✅ Wybrano nick: `{self.wybrany_nick}`", ephemeral=True)
+        self.selected_nick = self.nick_select.values[0]
+        await interaction.response.send_message(f"✅ Wybrano nick: `{self.selected_nick}`", ephemeral=True)
 
     async def select_rank(self, interaction: Interaction):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("⛔ To nie jest Twój panel.", ephemeral=True)
+            return await interaction.response.send_message("⛔ To nie Twój panel.", ephemeral=True)
 
-        if not self.wybrany_nick:
+        if not self.selected_nick:
             return await interaction.response.send_message("⚠️ Najpierw wybierz nick!", ephemeral=True)
 
         selected_rank = self.rank_select.values[0]
-        await update_rank(self.user.id, self.wybrany_nick, selected_rank)
-        await interaction.response.send_message(f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.wybrany_nick}`", ephemeral=True)
-
-
-class UstawRangęView(View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.selected_nicks = {}
-
-        self.nick_select = Select(
-            placeholder="🔹 Wybierz swój nick z LoL-a",
-            options=[],  # zostanie uzupełnione dynamicznie
-            custom_id="select_nick"
-        )
-        self.nick_select.callback = self.select_nick
-        self.add_item(self.nick_select)
-
-        self.rank_select = Select(
-            placeholder="🏅 Wybierz rangę",
-            options=[SelectOption(label=rank) for rank in RANGI],
-            custom_id="select_rank"
-        )
-        self.rank_select.callback = self.select_rank
-        self.add_item(self.rank_select)
-
-    async def select_nick(self, interaction: Interaction):
-        user_id = interaction.user.id
-        selected_nick = self.nick_select.values[0]
-
-        # sprawdzamy, czy to jego nick
-        nicki_uzytkownika = await get_nicknames(user_id)
-        tylko_nicki = [n for n, _ in nicki_uzytkownika]
-
-        if selected_nick not in tylko_nicki:
-            return await interaction.response.send_message("⛔ To nie jest Twój nick.", ephemeral=True)
-
-        self.selected_nicks[user_id] = selected_nick
-        await interaction.response.send_message(f"✅ Wybrano nick: `{selected_nick}`", ephemeral=True)
-
-    async def select_rank(self, interaction: Interaction):
-        user_id = interaction.user.id
-        selected_rank = self.rank_select.values[0]
-
-        selected_nick = self.selected_nicks.get(user_id)
-        if not selected_nick:
-            return await interaction.response.send_message("⚠️ Najpierw wybierz swój nick!", ephemeral=True)
-
-        await update_rank(user_id, selected_nick, selected_rank)
+        await update_rank(interaction.user.id, self.selected_nick, selected_rank)
         await interaction.response.send_message(
-            f"🏅 Ranga **{selected_rank}** ustawiona dla `{selected_nick}`", ephemeral=True
+            f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.selected_nick}`", ephemeral=True
         )
 
-@bot.command(name="ustawranga")
+@bot.command(name="rangipanel")
 @commands.has_permissions(administrator=True)
-async def ustawranga(ctx):
-    view = UstawRangęView()
+async def rangipanel(ctx):
+    view = RankingPanelView()
+    msg = await ctx.send("📌 **Panel ustawiania rangi** – kliknij przycisk, aby ustawić rangę dla swoich nicków:", view=view)
+    await msg.pin()
 
-    # pobierz unikalne nicki z bazy
+async def update_rank(user_id: int, nickname: str, new_rank: str):
     async with db_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT DISTINCT nickname FROM lol_nicknames")
-        view.nick_select.options = [SelectOption(label=row["nickname"]) for row in rows]
+        await conn.execute(
+            "UPDATE lol_nicknames SET rank = $1 WHERE user_id = $2 AND nickname = $3",
+            new_rank, user_id, nickname
+        )
 
-    msg = await ctx.send("⚙️ **Panel ustawiania rangi** – wybierz swój nick i przypisz mu rangę:", view=view)
-    await msg.pin()  # możesz przypiąć wiadomość
 
 # ---------- INFO I OPIS ---------- #
 
