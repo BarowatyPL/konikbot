@@ -60,6 +60,7 @@ panel_message = None
 ranking_mode = False
 enrollment_locked = False
 signups_locked = False
+signup_lock = asyncio.Lock()
 player_nicknames = {}
 db_pool = None
 last_click_times = {}  # user_id: datetime
@@ -406,22 +407,30 @@ class SignupPanel(discord.ui.View):
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         now = datetime.utcnow()
-        cooldown = 10
+        cooldown = 10  # sekundy
     
         if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
-            await interaction.response.send_message(f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.", ephemeral=True)
+            await interaction.response.send_message(
+                f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.",
+                ephemeral=True
+            )
             return
     
         last_click_times[user.id] = now
     
         async with signup_lock:
+            # Sprawdzenie ostrzeżeń
             async with db_pool.acquire() as conn:
                 result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
                 if result and result["liczba"] >= 4:
-                    await interaction.response.send_message("🚫 Masz bana na customy. Skontaktuj się z administracją.", ephemeral=True)
+                    await interaction.response.send_message(
+                        "🚫 Masz bana na customy. Skontaktuj się z administracją.",
+                        ephemeral=True
+                    )
                     return
     
-            if any(u.id == user.id for u in signups + waiting_list):
+            if user in signups or user in waiting_list:
+                await interaction.response.send_message("❗ Jesteś już zapisany.", ephemeral=True)
                 return
     
             nicknames = await get_nicknames(user.id)
@@ -437,9 +446,10 @@ class SignupPanel(discord.ui.View):
             else:
                 if len(signups) < MAX_SIGNUPS:
                     signups.append(user)
+                    await log_to_discord(f"👤 {user.mention} zapisał się na listę główną.")
                 else:
                     waiting_list.append(user)
-                await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
+                    await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (brak miejsca).")
     
             await self.update_message(interaction)
 
