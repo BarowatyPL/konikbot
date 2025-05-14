@@ -282,23 +282,66 @@ class UstawRangęView(View):
         await interaction.response.send_message(f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.wybrany_nick}`", ephemeral=True)
 
 
-@bot.command(name="ustawranga")
-async def ustawranga(ctx):
-    nicki = await get_nicknames(ctx.author.id)
-    nicknames_only = [nick for nick, _ in nicki]
+class UstawRangęView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.selected_nicks = {}
 
-    if not nicknames_only:
-        return await ctx.send("❌ Najpierw dodaj swój nick za pomocą `!dodajnick`.", delete_after=10)
-
-    view = UstawRangęView(user=ctx.author, nicknames=nicknames_only)
-    await ctx.send(f"⚙️ Wybierz nick i rangę, {ctx.author.mention}", view=view, ephemeral=True)
-
-async def update_rank(user_id: int, nickname: str, new_rank: str):
-    async with db_pool.acquire() as conn:
-        await conn.execute(
-            "UPDATE lol_nicknames SET rank = $1 WHERE user_id = $2 AND nickname = $3",
-            new_rank, user_id, nickname
+        self.nick_select = Select(
+            placeholder="🔹 Wybierz swój nick z LoL-a",
+            options=[],  # zostanie uzupełnione dynamicznie
+            custom_id="select_nick"
         )
+        self.nick_select.callback = self.select_nick
+        self.add_item(self.nick_select)
+
+        self.rank_select = Select(
+            placeholder="🏅 Wybierz rangę",
+            options=[SelectOption(label=rank) for rank in RANGI],
+            custom_id="select_rank"
+        )
+        self.rank_select.callback = self.select_rank
+        self.add_item(self.rank_select)
+
+    async def select_nick(self, interaction: Interaction):
+        user_id = interaction.user.id
+        selected_nick = self.nick_select.values[0]
+
+        # sprawdzamy, czy to jego nick
+        nicki_uzytkownika = await get_nicknames(user_id)
+        tylko_nicki = [n for n, _ in nicki_uzytkownika]
+
+        if selected_nick not in tylko_nicki:
+            return await interaction.response.send_message("⛔ To nie jest Twój nick.", ephemeral=True)
+
+        self.selected_nicks[user_id] = selected_nick
+        await interaction.response.send_message(f"✅ Wybrano nick: `{selected_nick}`", ephemeral=True)
+
+    async def select_rank(self, interaction: Interaction):
+        user_id = interaction.user.id
+        selected_rank = self.rank_select.values[0]
+
+        selected_nick = self.selected_nicks.get(user_id)
+        if not selected_nick:
+            return await interaction.response.send_message("⚠️ Najpierw wybierz swój nick!", ephemeral=True)
+
+        await update_rank(user_id, selected_nick, selected_rank)
+        await interaction.response.send_message(
+            f"🏅 Ranga **{selected_rank}** ustawiona dla `{selected_nick}`", ephemeral=True
+        )
+
+@bot.command(name="ustawranga")
+@commands.has_permissions(administrator=True)
+async def ustawranga(ctx):
+    view = UstawRangęView()
+
+    # pobierz unikalne nicki z bazy
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT DISTINCT nickname FROM lol_nicknames")
+        view.nick_select.options = [SelectOption(label=row["nickname"]) for row in rows]
+
+    msg = await ctx.send("⚙️ **Panel ustawiania rangi** – wybierz swój nick i przypisz mu rangę:", view=view)
+    await msg.pin()  # możesz przypiąć wiadomość
 
 # ---------- INFO I OPIS ---------- #
 
