@@ -315,8 +315,10 @@ async def regulamin(ctx):
 event_time = None  # dodane globalnie
 
 async def generate_embed_async():
+    global signups_locked
+
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
-    global signups_locked, event_time, ranking_mode, signups, waiting_list, db_pool
+
 
     lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signups_locked else "✅ **Zapisy na listę główną są otwarte.**"
 
