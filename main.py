@@ -254,10 +254,44 @@ class RankingPanelView(View):
         nicknames_only = [n for n, _ in nicki]
 
         if not nicknames_only:
-            return await interaction.response.send_message("❌ Nie masz żadnych dodanych nicków. Użyj `!dodajnick`.", ephemeral=True)
+            return await interaction.response.send_message("❌ Nie masz żadnych dodanych nicków. Użyj 'Dodaj nick'.", ephemeral=True, delete_after=60)
 
         view = UstawRangaDropdownView(interaction.user, nicknames_only)
-        await interaction.response.send_message("🎯 Wybierz nick i przypisz mu rangę:", view=view, ephemeral=True)
+        await interaction.response.send_message("🎯 Wybierz nick i przypisz mu rangę:", view=view, ephemeral=True, delete_after=60)
+
+    @discord.ui.button(label="➕ Dodaj nick", style=ButtonStyle.secondary, custom_id="dodaj_nick_button")
+    async def dodaj_nick(self, interaction: Interaction, button: Button):
+        await interaction.response.send_message("📥 Podaj nick(i) z LoL-a. Możesz dodać wiele, oddzielając przecinkami.", ephemeral=True, delete_after=60)
+
+        def check(msg):
+            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
+
+        try:
+            msg = await bot.wait_for("message", timeout=60, check=check)
+            content = msg.content.strip()
+            nicknames = [n.strip() for n in content.split(",") if n.strip()]
+            if not nicknames:
+                return await interaction.followup.send("❌ Nie podano żadnych nicków.", ephemeral=True, delete_after=60)
+
+            await add_nicknames(interaction.user.id, nicknames)
+            await interaction.followup.send(f"✅ Dodano {len(nicknames)} nick(ów): {', '.join(nicknames)}", ephemeral=True, delete_after=60)
+            await msg.delete()
+
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏳ Czas minął. Spróbuj ponownie.", ephemeral=True, delete_after=60)
+
+async def add_nicknames(user_id: int, nicknames: list[str], rank: str = None):
+    async with db_pool.acquire() as conn:
+        for nick in nicknames:
+            await conn.execute(
+                """
+                INSERT INTO lol_nicknames (user_id, nickname, rank)
+                VALUES ($1, $2, $3)
+                ON CONFLICT DO NOTHING
+                """,
+                user_id, nick, rank
+            )
+
 
         
 class UstawRangaDropdownView(View):
@@ -284,22 +318,22 @@ class UstawRangaDropdownView(View):
 
     async def select_nick(self, interaction: Interaction):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("⛔ To nie Twój panel.", ephemeral=True)
+            return await interaction.response.send_message("⛔ To nie Twój panel.", ephemeral=True, delete_after=60)
 
         self.selected_nick = self.nick_select.values[0]
-        await interaction.response.send_message(f"✅ Wybrano nick: `{self.selected_nick}`", ephemeral=True)
+        await interaction.response.send_message(f"✅ Wybrano nick: `{self.selected_nick}`", ephemeral=True, delete_after=60)
 
     async def select_rank(self, interaction: Interaction):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("⛔ To nie Twój panel.", ephemeral=True)
+            return await interaction.response.send_message("⛔ To nie Twój panel.", ephemeral=True, delete_after=60)
 
         if not self.selected_nick:
-            return await interaction.response.send_message("⚠️ Najpierw wybierz nick!", ephemeral=True)
+            return await interaction.response.send_message("⚠️ Najpierw wybierz nick!", ephemeral=True, delete_after=60)
 
         selected_rank = self.rank_select.values[0]
         await update_rank(interaction.user.id, self.selected_nick, selected_rank)
         await interaction.response.send_message(
-            f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.selected_nick}`", ephemeral=True
+            f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.selected_nick}`", ephemeral=True, delete_after=60
         )
         
 async def update_rank(user_id: int, nickname: str, new_rank: str):
