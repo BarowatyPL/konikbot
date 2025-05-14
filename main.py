@@ -11,7 +11,8 @@ from flask import Flask
 from threading import Thread
 from elo_mvp_system import przetworz_mecz, ranking, profil, wczytaj_dane, zapisz_dane, PUNKTY_ELO, przewidywana_szansa
 from collections import Counter
-
+from discord.ui import View, Select
+from discord import SelectOption, Interaction
 
 # Flask do keep-alive
 app = Flask('')
@@ -66,6 +67,21 @@ db_pool = None
 last_click_times = {}  # user_id: datetime
 
 
+RANGA_EMOJI = {
+    "Iron": "⬛",
+    "Bronze": "🟫",
+    "Silver": "⬜",
+    "Gold": "🟧",
+    "Platinum": "🟩",
+    "Emerald": "🟢",
+    "Diamond": "🟦",
+    "Master": "🟪",
+    "Grandmaster": "🟥",
+    "Challenger": "🟨",
+    "Unranked": "⚪"
+}
+
+
 wczytaj_dane()
 
 # ---------- BAZA DANYCH ---------- #
@@ -118,22 +134,39 @@ async def create_tables():
         ''')
 
 
-async def get_nicknames(user_id: int) -> list[str]:
+async def get_nicknames(user_id: int) -> list[tuple[str, str]]:
     if db_pool is None:
         print("❌ db_pool nie jest połączone!")
         return []
     async with db_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT nickname FROM lol_nicknames WHERE user_id = $1", user_id)
-        return [row["nickname"] for row in rows]
+        rows = await conn.fetch("SELECT nickname, rank FROM lol_nicknames WHERE user_id = $1", user_id)
+        return [(row["nickname"], row["rank"] or "Unranked") for row in rows]
 
 
-async def add_nicknames(user_id: int, nicknames: list[str]):
+
+async def add_nicknames(user_id: int, nicknames: list[str], rank: str = None):
     async with db_pool.acquire() as conn:
         for nick in nicknames:
             await conn.execute(
-                "INSERT INTO lol_nicknames (user_id, nickname) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                user_id, nick
+                """
+                INSERT INTO lol_nicknames (user_id, nickname, rank)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id, nickname) DO NOTHING
+                """,
+                user_id, nick, rank
             )
+            
+async def update_rank(user_id: int, nickname: str, new_rank: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE lol_nicknames
+            SET rank = $1
+            WHERE user_id = $2 AND nickname = $3
+            """,
+            new_rank, user_id, nickname
+        )
+
 
 
 @tasks.loop(seconds=60)
@@ -200,6 +233,72 @@ async def pobierz_gracza(nick):
         return dict(row)
     else:
         return None
+
+
+# ---------- RANGI ---------- #
+
+RANGI = [
+    "Iron", "Bronze", "Silver", "Gold", "Platinum",
+    "Emerald", "Diamond", "Master", "Grandmaster", "Challenger"
+]
+
+class UstawRangęView(View):
+    def __init__(self, user: discord.User, nicknames: list[str]):
+        super().__init__(timeout=60)
+        self.user = user
+        self.nicknames = nicknames
+        self.wybrany_nick = None
+
+        self.nick_select = Select(
+            placeholder="🔹 Wybierz nick, którego rangę chcesz ustawić",
+            options=[SelectOption(label=nick) for nick in nicknames]
+        )
+        self.nick_select.callback = self.select_nick
+        self.add_item(self.nick_select)
+
+        self.rank_select = Select(
+            placeholder="🏅 Wybierz rangę",
+            options=[SelectOption(label=rank) for rank in RANGI]
+        )
+        self.rank_select.callback = self.select_rank
+        self.add_item(self.rank_select)
+
+    async def select_nick(self, interaction: Interaction):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("⛔ To nie jest Twój panel.", ephemeral=True)
+
+        self.wybrany_nick = self.nick_select.values[0]
+        await interaction.response.send_message(f"✅ Wybrano nick: `{self.wybrany_nick}`", ephemeral=True)
+
+    async def select_rank(self, interaction: Interaction):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("⛔ To nie jest Twój panel.", ephemeral=True)
+
+        if not self.wybrany_nick:
+            return await interaction.response.send_message("⚠️ Najpierw wybierz nick!", ephemeral=True)
+
+        selected_rank = self.rank_select.values[0]
+        await update_rank(self.user.id, self.wybrany_nick, selected_rank)
+        await interaction.response.send_message(f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.wybrany_nick}`", ephemeral=True)
+
+
+@bot.command(name="ustawranga")
+async def ustawranga(ctx):
+    nicki = await get_nicknames(ctx.author.id)
+    nicknames_only = [nick for nick, _ in nicki]
+
+    if not nicknames_only:
+        return await ctx.send("❌ Najpierw dodaj swój nick za pomocą `!dodajnick`.", delete_after=10)
+
+    view = UstawRangęView(user=ctx.author, nicknames=nicknames_only)
+    await ctx.send(f"⚙️ Wybierz nick i rangę, {ctx.author.mention}", view=view, ephemeral=True)
+
+async def update_rank(user_id: int, nickname: str, new_rank: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE lol_nicknames SET rank = $1 WHERE user_id = $2 AND nickname = $3",
+            new_rank, user_id, nickname
+        )
 
 # ---------- INFO I OPIS ---------- #
 
@@ -334,16 +433,26 @@ async def generate_embed_async():
     # Lista główna
     if signups:
         signup_lines = []
-        for i, user in enumerate(signups):
-            nicknames = await get_nicknames(user.id)
-            formatted_nicks = ", ".join(f"`{n}`" for n in nicknames) if nicknames else "*brak nicku*"
+        for user in signups:
+            nicki_z_rangami = await get_nicknames(user.id)
+
+            if nicki_z_rangami:
+                formatted_nicks = []
+                for nick, ranga in nicki_z_rangami:
+                    formatted_nicks.append(f"`{nick}`")
+                formatted_nicks_str = ", ".join(formatted_nicks)
+                pierwsza_ranga = nicki_z_rangami[0][1]
+                ranga_emoji = RANGA_EMOJI.get(pierwsza_ranga, RANGA_EMOJI["Unranked"])
+            else:
+                formatted_nicks_str = "*brak nicku*"
+                ranga_emoji = RANGA_EMOJI["Unranked"]
 
             async with db_pool.acquire() as conn:
                 result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
                 liczba = result["liczba"] if result else 0
                 status = "ban" if liczba >= 4 else f"{liczba}/3"
 
-            signup_lines.append(f"{status} • {user.mention} – {formatted_nicks}")
+            signup_lines.append(f"{status} • {ranga_emoji} {user.mention} – {formatted_nicks_str}")
         signup_str = "\n".join(signup_lines)
     else:
         signup_str = "Brak"
@@ -351,16 +460,26 @@ async def generate_embed_async():
     # Lista rezerwowa
     if waiting_list:
         reserve_lines = []
-        for i, user in enumerate(waiting_list):
-            nicknames = await get_nicknames(user.id)
-            formatted_nicks = ", ".join(f"`{n}`" for n in nicknames) if nicknames else "*brak nicku*"
+        for user in waiting_list:
+            nicki_z_rangami = await get_nicknames(user.id)
+
+            if nicki_z_rangami:
+                formatted_nicks = []
+                for nick, ranga in nicki_z_rangami:
+                    formatted_nicks.append(f"`{nick}`")
+                formatted_nicks_str = ", ".join(formatted_nicks)
+                pierwsza_ranga = nicki_z_rangami[0][1]
+                ranga_emoji = RANGA_EMOJI.get(pierwsza_ranga, RANGA_EMOJI["Unranked"])
+            else:
+                formatted_nicks_str = "*brak nicku*"
+                ranga_emoji = RANGA_EMOJI["Unranked"]
 
             async with db_pool.acquire() as conn:
                 result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
                 liczba = result["liczba"] if result else 0
                 status = "ban" if liczba >= 4 else f"{liczba}/3"
 
-            reserve_lines.append(f"{status} • {user.mention} – {formatted_nicks}")
+            reserve_lines.append(f"{status} • {ranga_emoji} {user.mention} – {formatted_nicks_str}")
         reserve_str = "\n".join(reserve_lines)
     else:
         reserve_str = "Brak"
@@ -369,7 +488,6 @@ async def generate_embed_async():
     embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
 
     return embed
-
 
 
 
