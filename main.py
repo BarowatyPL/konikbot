@@ -59,7 +59,7 @@ panel_channel = None
 panel_message = None
 ranking_mode = False
 enrollment_locked = False
-signups_locked = False
+signup_lock = asyncio.Lock()
 player_nicknames = {}
 db_pool = None
 last_click_times = {}  # user_id: datetime
@@ -412,48 +412,42 @@ class SignupPanel(discord.ui.View):
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         now = datetime.utcnow()
-        cooldown = 10  # sekundy
+        cooldown = 10
     
         if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
-            await interaction.response.send_message(
-                f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.",
-                ephemeral=True
-            )
+            await interaction.response.send_message(f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.", ephemeral=True)
             return
     
         last_click_times[user.id] = now
     
-        # Sprawdzenie ostrzeżeń
-        async with db_pool.acquire() as conn:
-            result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
-            if result and result["liczba"] >= 4:
-                await interaction.response.send_message(
-                    "🚫 Masz bana na customy. Skontaktuj się z administracją.",
-                    ephemeral=True
-                )
+        async with signup_lock:
+            async with db_pool.acquire() as conn:
+                result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
+                if result and result["liczba"] >= 4:
+                    await interaction.response.send_message("🚫 Masz bana na customy. Skontaktuj się z administracją.", ephemeral=True)
+                    return
+    
+            if any(u.id == user.id for u in signups + waiting_list):
                 return
     
-        if user in signups or user in waiting_list:
-            return
+            nicknames = await get_nicknames(user.id)
+            if not nicknames:
+                success = await self.ask_for_nickname(interaction, user)
+                if not success:
+                    return
+                await self.update_message(interaction)
     
-        nicknames = await get_nicknames(user.id)
-        if not nicknames:
-            success = await self.ask_for_nickname(interaction, user)
-            if not success:
-                return
-            await self.update_message(interaction)
-    
-        if signups_locked:
-            waiting_list.append(user)
-            await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (główna zablokowana).")
-        else:
-            if len(signups) < MAX_SIGNUPS:
-                signups.append(user)
-            else:
+            if signups_locked:
                 waiting_list.append(user)
-            await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
+                await log_to_discord(f"👤 {user.mention} zapisał się na listę rezerwową (główna zablokowana).")
+            else:
+                if len(signups) < MAX_SIGNUPS:
+                    signups.append(user)
+                else:
+                    waiting_list.append(user)
+                await log_to_discord(f"👤 {user.mention} zapisał się na listę {'główną' if user in signups else 'rezerwową'}.")
     
-        await self.update_message(interaction)
+            await self.update_message(interaction)
 
 
 
@@ -482,45 +476,39 @@ class SignupPanel(discord.ui.View):
         await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
         await self.update_message(interaction)
 
-    @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
+   @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
     async def signup_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         now = datetime.utcnow()
-        cooldown = 10  # sekundy
+        cooldown = 10
     
         if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
-            await interaction.response.send_message(
-                f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.",
-                ephemeral=True
-            )
+            await interaction.response.send_message(f"⏳ Poczekaj {cooldown} sekund przed ponownym kliknięciem.", ephemeral=True)
             return
     
         last_click_times[user.id] = now
     
-        # Sprawdzenie ostrzeżeń
-        async with db_pool.acquire() as conn:
-            result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
-            if result and result["liczba"] >= 4:
-                await interaction.response.send_message(
-                    "🚫 Masz bana na customy. Skontaktuj się z administracją.",
-                    ephemeral=True
-                )
+        async with signup_lock:
+            async with db_pool.acquire() as conn:
+                result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
+                if result and result["liczba"] >= 4:
+                    await interaction.response.send_message("🚫 Masz bana na customy. Skontaktuj się z administracją.", ephemeral=True)
+                    return
+    
+            if any(u.id == user.id for u in signups + waiting_list):
+                await interaction.response.send_message("❗ Już jesteś zapisany na listę.", ephemeral=True)
                 return
     
-        if user in signups or user in waiting_list:
-            await interaction.response.send_message("❗ Już jesteś zapisany na listę.", ephemeral=True)
-            return
+            nicknames = await get_nicknames(user.id)
+            if not nicknames:
+                success = await self.ask_for_nickname(interaction, user)
+                if not success:
+                    return
+                await self.update_message(interaction)
     
-        nicknames = await get_nicknames(user.id)
-        if not nicknames:
-            success = await self.ask_for_nickname(interaction, user)
-            if not success:
-                return
+            waiting_list.append(user)
+            await log_to_discord(f"👤 {user.mention} zapisał się bezpośrednio na **listę rezerwową** (przycisk).")
             await self.update_message(interaction)
-    
-        waiting_list.append(user)
-        await log_to_discord(f"👤 {user.mention} zapisał się bezpośrednio na **listę rezerwową** (przycisk).")
-        await self.update_message(interaction)
 
 
     
@@ -568,24 +556,26 @@ class SignupPanel(discord.ui.View):
                 return
     
             user = msg.mentions[0]
-            if user in signups:
-                signups.remove(user)
-            elif user in waiting_list:
-                waiting_list.remove(user)
-            else:
-                await prompt.delete()
-                await msg.delete()
-                return
+            removed_from = None
     
-            await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy.")
-            await self.update_message(interaction)
+            if any(u.id == user.id for u in signups):
+                signups[:] = [u for u in signups if u.id != user.id]
+                removed_from = "głównej"
+            elif any(u.id == user.id for u in waiting_list):
+                waiting_list[:] = [u for u in waiting_list if u.id != user.id]
+                removed_from = "rezerwowej"
+    
+            if removed_from:
+                await log_to_discord(f"👤 {interaction.user.mention} usunął {user.mention} z listy {removed_from}.")
+                await self.update_message(interaction)
+    
             await prompt.delete()
             await msg.delete()
     
         except asyncio.TimeoutError:
             await prompt.delete()
 
-    
+
     @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
@@ -605,7 +595,7 @@ class SignupPanel(discord.ui.View):
                 return
     
             user = msg.mentions[0]
-            if user in signups or user in waiting_list:
+            if any(u.id == user.id for u in signups + waiting_list):
                 await prompt.delete()
                 await msg.delete()
                 return
@@ -621,12 +611,10 @@ class SignupPanel(discord.ui.View):
             if len(signups) < MAX_SIGNUPS:
                 signups.append(user)
                 await log_to_discord(f"👤 {interaction.user.mention} dodał {user.mention} do listy głównej.")
+                await self.update_message(interaction)
             else:
-                await prompt.delete()
-                await msg.delete()
-                return
+                await interaction.followup.send("❗ Lista główna jest pełna.", ephemeral=True)
     
-            await self.update_message(interaction)
             await prompt.delete()
             await msg.delete()
     
@@ -636,12 +624,13 @@ class SignupPanel(discord.ui.View):
 
 
     
-    @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
+     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
     async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             return
     
         if len(signups) >= MAX_SIGNUPS:
+            await interaction.response.send_message("❗ Lista główna jest pełna.", ephemeral=True)
             return
     
         await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy:", ephemeral=True)
@@ -658,8 +647,8 @@ class SignupPanel(discord.ui.View):
                 return
     
             user = msg.mentions[0]
-            if user in waiting_list:
-                waiting_list.remove(user)
+            if any(u.id == user.id for u in waiting_list):
+                waiting_list[:] = [u for u in waiting_list if u.id != user.id]
                 signups.append(user)
                 await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
                 await self.update_message(interaction)
@@ -704,6 +693,7 @@ class SignupPanel(discord.ui.View):
         if not interaction.user.guild_permissions.administrator:
             return
         if not waiting_list:
+            await interaction.response.send_message("❗ Lista rezerwowa jest pusta.", ephemeral=True)
             return
     
         channel_id = 1371869603227242537
@@ -742,12 +732,12 @@ class SignupPanel(discord.ui.View):
 
     async def update_message(self, interaction: discord.Interaction, log_click: bool = False):
         embed = await generate_embed_async()
-
+    
         try:
             await self.message.edit(embed=embed, view=self)
         except discord.HTTPException:
             pass
-
+    
         if interaction.response.is_done():
             try:
                 await interaction.followup.send("✅ Panel zaktualizowany.", ephemeral=True, delete_after=3)
@@ -758,7 +748,7 @@ class SignupPanel(discord.ui.View):
                 await interaction.response.defer()
             except discord.InteractionResponded:
                 pass
-
+    
         if log_click:
             await log_to_discord(f"👆 {interaction.user.mention} zmienił stan zapisów.")
 
@@ -769,27 +759,27 @@ class SignupPanel(discord.ui.View):
             "🔹 Podaj swój nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami.",
             ephemeral=True
         )
-
+    
         def check(msg): return msg.author.id == user.id and msg.channel == interaction.channel
-
+    
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             nick_input = msg.content.strip()
             nicknames = [n.strip() for n in nick_input.split(",") if n.strip()]
             await msg.delete()
-
+    
             if not nicknames:
                 fail = await interaction.followup.send("❌ Nie podano żadnego nicku. Anulowano zapis.", ephemeral=True)
                 await asyncio.sleep(5)
                 await fail.delete()
                 return False
-
+    
             await add_nicknames(user.id, nicknames)
             success = await interaction.followup.send("✅ Nick(i) zapisane.", ephemeral=True)
             await asyncio.sleep(5)
             await success.delete()
             return True
-
+    
         except asyncio.TimeoutError:
             timeout = await interaction.followup.send("⏳ Czas minął. Nie podano nicku.", ephemeral=True)
             await asyncio.sleep(5)
@@ -831,13 +821,12 @@ class SignupPanel(discord.ui.View):
             await timeout_msg.delete()
             await prompt.delete()
             return False
-
+    
         except Exception as e:
             error_msg = await channel.send(f"⚠️ Wystąpił błąd: {e}")
             await asyncio.sleep(5)
             await error_msg.delete()
             return False
-
 
 
 @bot.command()
@@ -856,7 +845,7 @@ async def panel(ctx):
 @commands.has_permissions(administrator=True)
 async def lista(ctx):
     """Wyświetla listę zapisanych bez przycisków (tylko dla admina)."""
-    embed = generate_embed()
+    embed = await generate_embed_async()
     await ctx.send(embed=embed)
 
 # ---------- KOMENDY DO GIER RANKINGOWYCH ---------- #
