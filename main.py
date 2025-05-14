@@ -476,7 +476,7 @@ class SignupPanel(discord.ui.View):
         await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
         await self.update_message(interaction)
 
-   @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
     async def signup_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
         now = datetime.utcnow()
