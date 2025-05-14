@@ -59,7 +59,7 @@ panel_channel = None
 panel_message = None
 ranking_mode = False
 enrollment_locked = False
-signup_lock = asyncio.Lock()
+signup_lock = False
 player_nicknames = {}
 db_pool = None
 last_click_times = {}  # user_id: datetime
@@ -319,8 +319,7 @@ async def generate_embed_async():
 
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
-
-    lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signups_locked else "✅ **Zapisy na listę główną są otwarte.**"
+    lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signup_lock.locked() else "✅ **Zapisy na listę główną są otwarte.**"
 
     if event_time:
         czas_wydarzenia = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
