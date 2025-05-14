@@ -315,7 +315,7 @@ async def regulamin(ctx):
 event_time = None  # dodane globalnie
 
 async def generate_embed_async():
-    global signups_locked
+    global signups_locked, event_time, ranking_mode, signups, waiting_list, db_pool
 
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
@@ -335,10 +335,7 @@ async def generate_embed_async():
         signup_lines = []
         for i, user in enumerate(signups):
             nicknames = await get_nicknames(user.id)
-            if nicknames:
-                formatted_nicks = ", ".join(f"`{n}`" for n in nicknames)
-            else:
-                formatted_nicks = "*brak nicku*"
+            formatted_nicks = ", ".join(f"`{n}`" for n in nicknames) if nicknames else "*brak nicku*"
 
             async with db_pool.acquire() as conn:
                 result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
@@ -355,10 +352,7 @@ async def generate_embed_async():
         reserve_lines = []
         for i, user in enumerate(waiting_list):
             nicknames = await get_nicknames(user.id)
-            if nicknames:
-                formatted_nicks = ", ".join(f"`{n}`" for n in nicknames)
-            else:
-                formatted_nicks = "*brak nicku*"
+            formatted_nicks = ", ".join(f"`{n}`" for n in nicknames) if nicknames else "*brak nicku*"
 
             async with db_pool.acquire() as conn:
                 result = await conn.fetchrow("SELECT liczba FROM ostrzezenia WHERE user_id = $1", user.id)
@@ -371,12 +365,6 @@ async def generate_embed_async():
         reserve_str = "Brak"
 
     embed.add_field(name=f"Lista główna ({len(signups)}/{MAX_SIGNUPS})", value=signup_str, inline=False)
-    embed.add_field(name="Lista rezerwowa", value=reserve_str, inline=False)
-
-    return embed
-
-
-
 
 
 
