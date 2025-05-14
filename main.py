@@ -319,7 +319,7 @@ async def generate_embed_async():
 
     embed = discord.Embed(title="Panel zapisów", color=discord.Color.green())
 
-    lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signup_lock.locked() else "✅ **Zapisy na listę główną są otwarte.**"
+    lock_status = "🔒 **Zapisy na listę główną są zatrzymane.**" if signups_locked else "✅ **Zapisy na listę główną są otwarte.**"
 
     if event_time:
         czas_wydarzenia = f"🕒 **Czas wydarzenia:** {event_time.strftime('%H:%M')}"
