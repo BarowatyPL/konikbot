@@ -621,43 +621,42 @@ class SignupPanel(discord.ui.View):
         except asyncio.TimeoutError:
             await prompt.delete()
 
-
-
-    
-     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
-        async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if not interaction.user.guild_permissions.administrator:
-                return
+    @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
+    async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return
         
-            if len(signups) >= MAX_SIGNUPS:
-                await interaction.response.send_message("❗ Lista główna jest pełna.", ephemeral=True)
-                return
+        if len(signups) >= MAX_SIGNUPS:
+            await interaction.response.send_message("❗ Lista główna jest pełna.", ephemeral=True)
+            return
         
-            await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy:", ephemeral=True)
-            prompt = await interaction.original_response()
+        await interaction.response.send_message("Podaj @użytkownika do przeniesienia z rezerwy:", ephemeral=True)
+        prompt = await interaction.original_response()
         
-            def check(msg):
-                return msg.author == interaction.user and msg.channel == interaction.channel
+        def check(msg):
+            return msg.author == interaction.user and msg.channel == interaction.channel
         
-            try:
-                msg = await bot.wait_for("message", timeout=30.0, check=check)
-                if not msg.mentions:
-                    await prompt.delete()
-                    await msg.delete()
-                    return
-        
-                user = msg.mentions[0]
-                if any(u.id == user.id for u in waiting_list):
-                    waiting_list[:] = [u for u in waiting_list if u.id != user.id]
-                    signups.append(user)
-                    await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
-                    await self.update_message(interaction)
-        
+        try:
+            msg = await bot.wait_for("message", timeout=30.0, check=check)
+            if not msg.mentions:
                 await prompt.delete()
                 await msg.delete()
+                return
         
-            except asyncio.TimeoutError:
-                await prompt.delete()
+            user = msg.mentions[0]
+            if any(u.id == user.id for u in waiting_list):
+                waiting_list[:] = [u for u in waiting_list if u.id != user.id]
+                signups.append(user)
+                await log_to_discord(f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
+                await self.update_message(interaction)
+        
+            await prompt.delete()
+            await msg.delete()
+        
+        except asyncio.TimeoutError:
+            await prompt.delete()
+    
+
 
     
     @discord.ui.button(label="🪃 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
