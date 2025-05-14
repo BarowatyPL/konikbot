@@ -11,8 +11,10 @@ from flask import Flask
 from threading import Thread
 from elo_mvp_system import przetworz_mecz, ranking, profil, wczytaj_dane, zapisz_dane, PUNKTY_ELO, przewidywana_szansa
 from collections import Counter
-from discord.ui import View, Button
-from discord import Interaction, ButtonStyle
+from discord.ui import View, Select, Button
+from discord import SelectOption, Interaction, ButtonStyle
+
+
 
 # Flask do keep-alive
 app = Flask('')
@@ -256,6 +258,7 @@ class RankingPanelView(View):
 
         view = UstawRangaDropdownView(interaction.user, nicknames_only)
         await interaction.response.send_message("🎯 Wybierz nick i przypisz mu rangę:", view=view, ephemeral=True)
+
         
 class UstawRangaDropdownView(View):
     def __init__(self, user, nicki):
@@ -298,20 +301,19 @@ class UstawRangaDropdownView(View):
         await interaction.response.send_message(
             f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.selected_nick}`", ephemeral=True
         )
-
-@bot.command(name="rangipanel")
-@commands.has_permissions(administrator=True)
-async def rangipanel(ctx):
-    view = RankingPanelView()
-    msg = await ctx.send("📌 **Panel ustawiania rangi** – kliknij przycisk, aby ustawić rangę dla swoich nicków:", view=view)
-    await msg.pin()
-
+        
 async def update_rank(user_id: int, nickname: str, new_rank: str):
     async with db_pool.acquire() as conn:
         await conn.execute(
             "UPDATE lol_nicknames SET rank = $1 WHERE user_id = $2 AND nickname = $3",
             new_rank, user_id, nickname
         )
+
+@bot.command(name="rangipanel")
+@commands.has_permissions(administrator=True)
+async def rangipanel(ctx):
+    view = RankingPanelView()
+    await ctx.send("📌 **Panel ustawiania rangi** – kliknij przycisk, aby ustawić rangę dla swoich nicków:", view=view)
 
 
 # ---------- INFO I OPIS ---------- #
