@@ -828,9 +828,10 @@ async def panel(ctx):
     global panel_channel, panel_message
     panel_channel = ctx.channel
     embed = await generate_embed_async()
-    panel_message = await ctx.send(embed=embed)
-    view = SignupPanel(message=panel_message)
-    await panel_message.edit(view=view)
+    view = SignupPanel(message=None)
+    panel_message = await ctx.send(embed=embed, view=view)
+    view.message = panel_message
+
 
              
 
