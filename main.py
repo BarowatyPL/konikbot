@@ -1128,9 +1128,9 @@ class TematycznePanel(discord.ui.View):
     @discord.ui.button(label="📢 Pinguj graczy", style=discord.ButtonStyle.secondary)
     async def ping(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=10, delete_after=15)
+            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=10)
         if not tematyczne_gracze:
-            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True, delete_after=10, delete_after=15)
+            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True, delete_after=10)
         mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
         await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=300)
 
