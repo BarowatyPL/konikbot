@@ -1244,26 +1244,24 @@ async def tematyczne(ctx):
     await msg.edit(view=view)
 
 def generate_tematyczne_embed():
-    embed = discord.Embed(
-        title=f"🎮 {seria1_nazwa} vs {seria2_nazwa}",
-        color=discord.Color.blue()
-    )
-    embed.description = "Kliknij \"Dołącz\" aby zapisać się na event."
+    embed = discord.Embed(title=f"🎮 {seria1_nazwa} vs {seria2_nazwa}", color=discord.Color.blue())
+    embed.description = "Kliknij „Dołącz”, aby zapisać się na event."
 
     if tematyczne_event_time:
-        embed.add_field(
-            name="🕒 Zaplanowany czas wydarzenia",
-            value=tematyczne_event_time.strftime("%Y-%m-%d %H:%M"),
-            inline=False
-        )
+        embed.add_field(name="🕒 Godzina wydarzenia", value=tematyczne_event_time.strftime("%H:%M"), inline=False)
 
-    if tematyczne_gracze:
-        mentions = "\n".join(g['user'].mention for g in tematyczne_gracze.values())
-        embed.add_field(name="✅ Zapisani gracze", value=mentions, inline=False)
+    if tematyczne_gracze_main:
+        value = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(tematyczne_gracze_main.values()))
+        embed.add_field(name="✅ Główna lista", value=value, inline=False)
     else:
-        embed.add_field(name="Brak zapisanych graczy", value="Czekamy na zgłoszenia!", inline=False)
+        embed.add_field(name="✅ Główna lista", value="Brak zapisanych graczy.", inline=False)
+
+    if tematyczne_gracze_rezerwowi:
+        value = "\n".join(f"{i+1}. {user.mention}" for i, user in enumerate(tematyczne_gracze_rezerwowi.values()))
+        embed.add_field(name="📋 Rezerwa", value=value, inline=False)
 
     return embed
+
 
 
 
