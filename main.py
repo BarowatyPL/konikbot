@@ -1069,7 +1069,8 @@ from datetime import datetime, timedelta
 
 seria1_nazwa = "Seria 1"
 seria2_nazwa = "Seria 2"
-tematyczne_gracze = {}
+tematyczne_gracze_main = {}
+tematyczne_gracze_rezerwowi = {}
 tematyczne_event_time = None
 tematyczne_reminder_sent = False
 
@@ -1080,49 +1081,86 @@ class TematycznePanel(discord.ui.View):
 
     @discord.ui.button(label="✅ Dołącz", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id in tematyczne_gracze:
-            return await interaction.response.send_message("✅ Już jesteś zapisany!", ephemeral=True)
-    
-        tematyczne_gracze[interaction.user.id] = {
-            "user": interaction.user
-        }
+        uid = interaction.user.id
+        if uid in tematyczne_gracze_main or uid in tematyczne_gracze_rezerwowi:
+            return await interaction.response.send_message("✅ Już jesteś zapisany.", ephemeral=True, delete_after=15)
+
+        if len(tematyczne_gracze_main) < 10:
+            tematyczne_gracze_main[uid] = interaction.user
+            msg = "✅ Zapisano na główną listę!"
+        else:
+            tematyczne_gracze_rezerwowi[uid] = interaction.user
+            msg = "ℹ️ Główna lista pełna. Zapisano na listę rezerwową."
+
         await self.update_message()
-        await interaction.response.send_message("✅ Zapisano Cię na wydarzenie!", ephemeral=True)
+        await interaction.response.send_message(msg, ephemeral=True)
     
     
     @discord.ui.button(label="❌ Wypisz", style=discord.ButtonStyle.danger)
     async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id in tematyczne_gracze:
-            del tematyczne_gracze[interaction.user.id]
+        uid = interaction.user.id
+        removed = False
+        if uid in tematyczne_gracze_main:
+            del tematyczne_gracze_main[uid]
+            removed = True
+        if uid in tematyczne_gracze_rezerwowi:
+            del tematyczne_gracze_rezerwowi[uid]
+            removed = True
+        if removed:
             await self.update_message()
-            await interaction.response.send_message("👋 Zostałeś wypisany z wydarzenia.", ephemeral=True)
+            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True, delete_after=15)
         else:
-            await interaction.response.send_message("❌ Nie jesteś zapisany.", ephemeral=True)
+            await interaction.response.send_message("❌ Nie byłeś zapisany.", ephemeral=True, delete_after=15)
 
 
+    @discord.ui.button(label="📝 Zapisz się na rezerwę", style=discord.ButtonStyle.secondary)
+    async def join_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
+        uid = interaction.user.id
+        if uid in tematyczne_gracze_main:
+            return await interaction.response.send_message("✅ Już jesteś na głównej liście!", ephemeral=True, delete_after=15)
+        if uid in tematyczne_gracze_rezerwowi:
+            return await interaction.response.send_message("✅ Już jesteś na liście rezerwowej!", ephemeral=True, delete_after=15)
+    
+        tematyczne_gracze_rezerwowi[uid] = interaction.user
+        await self.update_message()
+        await interaction.response.send_message("📝 Dodano Cię na listę rezerwową.", ephemeral=True)
 
+    
     @discord.ui.button(label="🛠️ Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             return await interaction.response.send_message("Tylko administrator może ustawić czas.", ephemeral=True, delete_after=15)
-    
+
         await interaction.response.send_message("🕒 Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=15)
-    
+
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             hour, minute = map(int, msg.content.strip().split(":"))
             now = datetime.now()
-            global tematyczne_event_time, tematyczne_reminder_sent
+            global tematyczne_event_time
             tematyczne_event_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            if tematyczne_event_time < now:
-                tematyczne_event_time += timedelta(days=1)
-            tematyczne_reminder_sent = False
             await msg.delete()
             await self.update_message()
             await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True, delete_after=15)
         except:
             await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True, delete_after=15)
+
+    @discord.ui.button(label="📥 Promuj z rezerwy", style=discord.ButtonStyle.secondary)
+    async def promote(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Tylko administrator może przenosić z rezerwy.", ephemeral=True, delete_after=15)
+
+        if len(tematyczne_gracze_main) >= 10:
+            return await interaction.response.send_message("❌ Główna lista już pełna.", ephemeral=True, delete_after=15)
+
+        if not tematyczne_gracze_rezerwowi:
+            return await interaction.response.send_message("ℹ️ Brak graczy na liście rezerwowej.", ephemeral=True, delete_after=15)
+
+        uid, user = tematyczne_gracze_rezerwowi.popitem()
+        tematyczne_gracze_main[uid] = user
+        await self.update_message()
+        await interaction.response.send_message(f"📤 Przeniesiono {user.mention} do głównej listy.", ephemeral=True, delete_after=15)
 
 
     @discord.ui.button(label="📢 Pinguj graczy", style=discord.ButtonStyle.secondary)
