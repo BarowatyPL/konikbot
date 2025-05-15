@@ -1080,38 +1080,25 @@ class TematycznePanel(discord.ui.View):
 
     @discord.ui.button(label="✅ Dołącz", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(f"Podaj swoje linie dla **{seria1_nazwa}** (np. top, jg):", ephemeral=True, delete_after=15)
+        if interaction.user.id in tematyczne_gracze:
+            return await interaction.response.send_message("✅ Już jesteś zapisany!", ephemeral=True)
     
-        def check(m): return m.author == interaction.user and m.channel == interaction.channel
-        try:
-            msg1 = await bot.wait_for("message", timeout=60.0, check=check)
-            linie1 = [x.strip().lower() for x in msg1.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
-            await interaction.followup.send(f"Podaj swoje linie dla **{seria2_nazwa}** (np. mid, adc):", ephemeral=True, delete_after=15)
-            msg2 = await bot.wait_for("message", timeout=60.0, check=check)
-            linie2 = [x.strip().lower() for x in msg2.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
-            if not linie1 or not linie2:
-                await interaction.followup.send("❌ Nie podano poprawnych linii.", ephemeral=True, delete_after=15)
-                return
-            tematyczne_gracze[interaction.user.id] = {
-                "user": interaction.user,
-                "linie_seria1": linie1,
-                "linie_seria2": linie2
-            }
-            await msg1.delete()
-            await msg2.delete()
-            await self.update_message()
-            await interaction.followup.send(f"✅ Dodano Twoje linie!", ephemeral=True, delete_after=15)
-        except asyncio.TimeoutError:
-            await interaction.followup.send("⏰ Czas minął. Spróbuj ponownie.", ephemeral=True, delete_after=15)
-
+        tematyczne_gracze[interaction.user.id] = {
+            "user": interaction.user
+        }
+        await self.update_message()
+        await interaction.response.send_message("✅ Zapisano Cię na wydarzenie!", ephemeral=True)
+    
+    
     @discord.ui.button(label="❌ Wypisz", style=discord.ButtonStyle.danger)
     async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id in tematyczne_gracze:
             del tematyczne_gracze[interaction.user.id]
             await self.update_message()
-            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True, delete_after=15)
+            await interaction.response.send_message("👋 Zostałeś wypisany z wydarzenia.", ephemeral=True)
         else:
-            await interaction.response.send_message("❌ Nie jesteś zapisany.", ephemeral=True, delete_after=15)
+            await interaction.response.send_message("❌ Nie jesteś zapisany.", ephemeral=True)
+
 
 
     @discord.ui.button(label="🛠️ Ustaw czas", style=discord.ButtonStyle.primary)
@@ -1185,49 +1172,25 @@ class TematycznePanel(discord.ui.View):
     @discord.ui.button(label="🎲 Losuj drużyny", style=discord.ButtonStyle.success)
     async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może losować drużyny.", ephemeral=True, delete_after=10)
-
+            return await interaction.response.send_message("Tylko administrator może losować drużyny.", ephemeral=True)
+    
         gracze = list(tematyczne_gracze.values())
         if len(gracze) < 10:
-            return await interaction.response.send_message("❌ Potrzeba co najmniej 10 graczy do losowania.", ephemeral=True, delete_after=10)
-
-        roles = ["top", "jg", "mid", "adc", "supp"]
-
-        def is_valid(team, seria_key):
-            rcount = {r: 0 for r in roles}
-            for g in team:
-                for r in g[seria_key]:
-                    rcount[r] += 1
-            return all(rcount[r] >= 1 for r in roles)
-
+            return await interaction.response.send_message("❌ Potrzeba co najmniej 10 graczy do losowania.", ephemeral=True)
+    
         random.shuffle(gracze)
-        for _ in range(20):
-            random.shuffle(gracze)
-            team1 = gracze[:5]
-            team2 = gracze[5:10]
-            if is_valid(team1, "linie_seria1") and is_valid(team2, "linie_seria2"):
-                warning = None
-                break
-        else:
-            await interaction.response.defer()
-            warning = "⚠️ Nie udało się utworzyć zrównoważonych drużyn. Losuję losowo."
-            random.shuffle(gracze)
-            team1 = gracze[:5]
-            team2 = gracze[5:10]
-
-        def team_str(team, seria_key):
-            return "\n".join(f"• {g['user'].mention} ({', '.join(g[seria_key])})" for g in team)
-
+        team1 = gracze[:5]
+        team2 = gracze[5:10]
+    
+        def team_str(team):
+            return "\n".join(f"• {g['user'].mention}" for g in team)
+    
         embed = discord.Embed(title=f"🎮 {seria1_nazwa} vs {seria2_nazwa}", color=discord.Color.orange())
-        if warning:
-            embed.description = warning
-        embed.add_field(name=f"Drużyna 1 ({seria1_nazwa})", value=team_str(team1, "linie_seria1"), inline=True)
-        embed.add_field(name=f"Drużyna 2 ({seria2_nazwa})", value=team_str(team2, "linie_seria2"), inline=True)
+        embed.add_field(name=f"Drużyna 1 ({seria1_nazwa})", value=team_str(team1), inline=True)
+        embed.add_field(name=f"Drużyna 2 ({seria2_nazwa})", value=team_str(team2), inline=True)
+    
+        await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=600)
 
-        if warning:
-            await interaction.followup.send(embed=embed, ephemeral=False, delete_after=600)
-        else:
-            await interaction.response.send_message(embed=embed, ephemeral=False, delete_after=600)
 
     async def update_message(self):
         embed = generate_tematyczne_embed()
@@ -1247,9 +1210,8 @@ def generate_tematyczne_embed():
         title=f"🎮 {seria1_nazwa} vs {seria2_nazwa}",
         color=discord.Color.blue()
     )
-    embed.description = "Kliknij \"Dołącz\" aby zapisać się na event.\nPodajesz swoje linie osobno dla każdej serii!"
+    embed.description = "Kliknij \"Dołącz\" aby zapisać się na event."
 
-    # Dodanie informacji o czasie wydarzenia
     if tematyczne_event_time:
         embed.add_field(
             name="🕒 Zaplanowany czas wydarzenia",
@@ -1258,16 +1220,13 @@ def generate_tematyczne_embed():
         )
 
     if tematyczne_gracze:
-        for g in tematyczne_gracze.values():
-            embed.add_field(
-                name=g['user'].mention,
-                value=f"{seria1_nazwa}: {', '.join(g['linie_seria1'])}\n{seria2_nazwa}: {', '.join(g['linie_seria2'])}",
-                inline=False
-            )
+        mentions = "\n".join(g['user'].mention for g in tematyczne_gracze.values())
+        embed.add_field(name="✅ Zapisani gracze", value=mentions, inline=False)
     else:
         embed.add_field(name="Brak zapisanych graczy", value="Czekamy na zgłoszenia!", inline=False)
 
     return embed
+
 
 
 @bot.command(name="tematyczne_test")
