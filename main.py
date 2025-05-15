@@ -1080,17 +1080,17 @@ class TematycznePanel(discord.ui.View):
 
     @discord.ui.button(label="✅ Dołącz", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(f"Podaj swoje linie dla **{seria1_nazwa}** (np. top, jg):", ephemeral=True, delete_after=10)
-
+        await interaction.response.send_message(f"Podaj swoje linie dla **{seria1_nazwa}** (np. top, jg):", ephemeral=True)
+    
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg1 = await bot.wait_for("message", timeout=60.0, check=check)
             linie1 = [x.strip().lower() for x in msg1.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
-            await interaction.followup.send(f"Podaj swoje linie dla **{seria2_nazwa}** (np. mid, adc):", ephemeral=True, delete_after=10)
+            await interaction.followup.send(f"Podaj swoje linie dla **{seria2_nazwa}** (np. mid, adc):", ephemeral=True)
             msg2 = await bot.wait_for("message", timeout=60.0, check=check)
             linie2 = [x.strip().lower() for x in msg2.content.split(",") if x.strip().lower() in ["top", "jg", "mid", "adc", "supp"]]
             if not linie1 or not linie2:
-                await interaction.followup.send("❌ Nie podano poprawnych linii.", ephemeral=True, delete_after=10)
+                await interaction.followup.send("❌ Nie podano poprawnych linii.", ephemeral=True)
                 return
             tematyczne_gracze[interaction.user.id] = {
                 "user": interaction.user,
@@ -1100,26 +1100,27 @@ class TematycznePanel(discord.ui.View):
             await msg1.delete()
             await msg2.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Dodano Twoje linie!", ephemeral=True, delete_after=10)
+            await interaction.followup.send(f"✅ Dodano Twoje linie!", ephemeral=True)
         except asyncio.TimeoutError:
-            await interaction.followup.send("⏰ Czas minął. Spróbuj ponownie.", ephemeral=True, delete_after=10)
+            await interaction.followup.send("⏰ Czas minął. Spróbuj ponownie.", ephemeral=True)
 
     @discord.ui.button(label="❌ Wypisz", style=discord.ButtonStyle.danger)
     async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id in tematyczne_gracze:
             del tematyczne_gracze[interaction.user.id]
             await self.update_message()
-            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True, delete_after=10)
+            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True)
         else:
-            await interaction.response.send_message("❌ Nie jesteś zapisany.", ephemeral=True, delete_after=10)
+            await interaction.response.send_message("❌ Nie jesteś zapisany.", ephemeral=True)
+
 
     @discord.ui.button(label="🛠️ Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             return await interaction.response.send_message("Tylko administrator może ustawić czas.", ephemeral=True)
-
+    
         await interaction.response.send_message("🕒 Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True)
-
+    
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg = await bot.wait_for("message", timeout=60.0, check=check)
@@ -1132,9 +1133,10 @@ class TematycznePanel(discord.ui.View):
             tematyczne_reminder_sent = False
             await msg.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True, delete_after=10)
+            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True)
         except:
-            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True, delete_after=10)
+            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True)
+
 
     @discord.ui.button(label="📢 Pinguj graczy", style=discord.ButtonStyle.secondary)
     async def ping(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1148,24 +1150,25 @@ class TematycznePanel(discord.ui.View):
     @discord.ui.button(label="✏️ Zmień nazwę serii", style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może zmienić nazwy.", ephemeral=True, delete_after=10)
-
-        await interaction.response.send_message("✏️ Podaj nową nazwę serii 1:", ephemeral=True, delete_after=10)
+            return await interaction.response.send_message("Tylko administrator może zmienić nazwy.", ephemeral=True)
+    
+        await interaction.response.send_message("✏️ Podaj nową nazwę serii 1:", ephemeral=True)
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
             msg1 = await bot.wait_for("message", timeout=30.0, check=check)
             global seria1_nazwa
             seria1_nazwa = msg1.content.strip()
-            await interaction.followup.send("✏️ Podaj nową nazwę serii 2:", ephemeral=True, delete_after=10)
+            await interaction.followup.send("✏️ Podaj nową nazwę serii 2:", ephemeral=True)
             msg2 = await bot.wait_for("message", timeout=30.0, check=check)
             global seria2_nazwa
             seria2_nazwa = msg2.content.strip()
             await msg1.delete()
             await msg2.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Ustawiono: **{seria1_nazwa}** vs **{seria2_nazwa}**", ephemeral=True, delete_after=10)
+            await interaction.followup.send(f"✅ Ustawiono: **{seria1_nazwa}** vs **{seria2_nazwa}**", ephemeral=True)
         except asyncio.TimeoutError:
             await interaction.followup.send("⏰ Czas minął. Nie zmieniono.", ephemeral=True)
+
 
     @discord.ui.button(label="🎲 Losuj drużyny", style=discord.ButtonStyle.success)
     async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
