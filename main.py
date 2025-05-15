@@ -1083,7 +1083,7 @@ class TematycznePanel(discord.ui.View):
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
         uid = interaction.user.id
         if uid in tematyczne_gracze_main or uid in tematyczne_gracze_rezerwowi:
-            return await interaction.response.send_message("✅ Już jesteś zapisany.", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message("✅ Już jesteś zapisany.", ephemeral=True)
 
         if len(tematyczne_gracze_main) < 10:
             tematyczne_gracze_main[uid] = interaction.user
@@ -1108,18 +1108,18 @@ class TematycznePanel(discord.ui.View):
             removed = True
         if removed:
             await self.update_message()
-            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True, delete_after=15)
+            await interaction.response.send_message("👋 Zostałeś wypisany.", ephemeral=True)
         else:
-            await interaction.response.send_message("❌ Nie byłeś zapisany.", ephemeral=True, delete_after=15)
+            await interaction.response.send_message("❌ Nie byłeś zapisany.", ephemeral=True)
 
 
     @discord.ui.button(label="📝 Zapisz się na rezerwę", style=discord.ButtonStyle.secondary)
     async def join_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         uid = interaction.user.id
         if uid in tematyczne_gracze_main:
-            return await interaction.response.send_message("✅ Już jesteś na głównej liście!", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message("✅ Już jesteś na głównej liście!", ephemeral=True)
         if uid in tematyczne_gracze_rezerwowi:
-            return await interaction.response.send_message("✅ Już jesteś na liście rezerwowej!", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message("✅ Już jesteś na liście rezerwowej!", ephemeral=True)
     
         tematyczne_gracze_rezerwowi[uid] = interaction.user
         await self.update_message()
@@ -1129,9 +1129,9 @@ class TematycznePanel(discord.ui.View):
     @discord.ui.button(label="🛠️ Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może ustawić czas.", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message("Tylko administrator może ustawić czas.", ephemeral=True)
 
-        await interaction.response.send_message("🕒 Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=15)
+        await interaction.response.send_message("🕒 Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True)
 
         def check(m): return m.author == interaction.user and m.channel == interaction.channel
         try:
@@ -1142,33 +1142,47 @@ class TematycznePanel(discord.ui.View):
             tematyczne_event_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
             await msg.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True, delete_after=15)
+            await interaction.followup.send(f"✅ Czas ustawiony na {tematyczne_event_time.strftime('%H:%M')}", ephemeral=True)
         except:
-            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True, delete_after=15)
+            await interaction.followup.send("❌ Błąd formatu. Spróbuj `HH:MM`.", ephemeral=True)
 
     @discord.ui.button(label="📥 Promuj z rezerwy", style=discord.ButtonStyle.secondary)
     async def promote(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może przenosić z rezerwy.", ephemeral=True, delete_after=15)
-
+            return await interaction.response.send_message("Tylko administrator może przenosić z rezerwy.", ephemeral=True)
+    
         if len(tematyczne_gracze_main) >= 10:
-            return await interaction.response.send_message("❌ Główna lista już pełna.", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message("❌ Główna lista już pełna.", ephemeral=True)
+    
+        await interaction.response.send_message("🔎 Wpisz @użytkownika do przeniesienia z rezerwy:", ephemeral=True)
+    
+        def check(m):
+            return m.author == interaction.user and m.channel == interaction.channel
+    
+        try:
+            msg = await bot.wait_for("message", timeout=30.0, check=check)
+            mentioned = msg.mentions[0] if msg.mentions else None
+    
+            if not mentioned or mentioned.id not in tematyczne_gracze_rezerwowi:
+                return await interaction.followup.send("❌ Użytkownik nie jest na liście rezerwowej.", ephemeral=True)
+    
+            del tematyczne_gracze_rezerwowi[mentioned.id]
+            tematyczne_gracze_main[mentioned.id] = mentioned
+            await msg.delete()
+            await self.update_message()
+            await interaction.followup.send(f"📤 Przeniesiono {mentioned.mention} do głównej listy.", ephemeral=True)
+    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏰ Czas minął. Nie wybrano gracza.", ephemeral=True)
 
-        if not tematyczne_gracze_rezerwowi:
-            return await interaction.response.send_message("ℹ️ Brak graczy na liście rezerwowej.", ephemeral=True, delete_after=15)
-
-        uid, user = tematyczne_gracze_rezerwowi.popitem()
-        tematyczne_gracze_main[uid] = user
-        await self.update_message()
-        await interaction.response.send_message(f"📤 Przeniesiono {user.mention} do głównej listy.", ephemeral=True, delete_after=15)
 
 
     @discord.ui.button(label="📢 Pinguj graczy", style=discord.ButtonStyle.secondary)
     async def ping(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True, delete_after=10)
+            return await interaction.response.send_message("Tylko administrator może pingować.", ephemeral=True)
         if not tematyczne_gracze:
-            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True, delete_after=10)
+            return await interaction.response.send_message("❌ Brak zapisanych graczy.", ephemeral=True)
         mentions = " ".join(f"<@{uid}>" for uid in tematyczne_gracze)
         await interaction.response.send_message(f"📢 Ping: {mentions}", delete_after=300)
 
@@ -1190,22 +1204,24 @@ class TematycznePanel(discord.ui.View):
             await msg1.delete()
             await msg2.delete()
             await self.update_message()
-            await interaction.followup.send(f"✅ Ustawiono: **{seria1_nazwa}** vs **{seria2_nazwa}**", ephemeral=True, delete_after=15)
+            await interaction.followup.send(f"✅ Ustawiono: **{seria1_nazwa}** vs **{seria2_nazwa}**", ephemeral=True)
         except asyncio.TimeoutError:
             await interaction.followup.send("⏰ Czas minął. Nie zmieniono.", ephemeral=True, delete_after=15)
 
     @discord.ui.button(label="🧹 Wyczyść panel", style=discord.ButtonStyle.danger)
     async def clear_panel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Tylko administrator może czyścić panel.", ephemeral=True, delete_after=15)
+            return await interaction.response.send_message("Tylko administrator może czyścić panel.", ephemeral=True)
     
-        global tematyczne_gracze, tematyczne_event_time, tematyczne_reminder_sent
-        tematyczne_gracze.clear()
+        tematyczne_gracze_main.clear()
+        tematyczne_gracze_rezerwowi.clear()
+        global tematyczne_event_time, tematyczne_reminder_sent
         tematyczne_event_time = None
         tematyczne_reminder_sent = False
     
         await self.update_message()
-        await interaction.response.send_message("🧹 Panel został wyczyszczony.", ephemeral=True, delete_after=15)
+        await interaction.response.send_message("🧹 Panel został wyczyszczony.", ephemeral=True)
+
 
     @discord.ui.button(label="🎲 Losuj drużyny", style=discord.ButtonStyle.success)
     async def roll_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
