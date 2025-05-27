@@ -957,14 +957,14 @@ class SignupPanel(discord.ui.View):
             await timeout.delete()
             return False
     
-    async def ask_for_nickname_admin(self, channel, user: discord.User) -> bool:
+   async def ask_for_nickname_admin(self, channel, user: discord.User) -> bool:
         try:
             prompt = await channel.send(
-                f"🔹 {user.mention}, podaj nick z LoL-a (np. `Nick#EUW`). Możesz podać kilka, oddzielając przecinkami."
+                f"🔹 Podaj nick(i) LoL-a dla {user.mention} (oddziel przecinkami):"
             )
     
             def check(msg):
-                return msg.author.id == user.id and msg.channel == channel
+                return msg.author.guild_permissions.administrator and msg.channel == channel
     
             msg = await bot.wait_for("message", timeout=60.0, check=check)
             nick_input = msg.content.strip()
@@ -980,7 +980,7 @@ class SignupPanel(discord.ui.View):
     
             await add_nicknames(user.id, nicknames)
             await msg.delete()
-            confirm = await channel.send("✅ Nick(i) zapisane.")
+            confirm = await channel.send(f"✅ Dodano nick(i) dla {user.mention}.")
             await asyncio.sleep(5)
             await confirm.delete()
             await prompt.delete()
@@ -998,6 +998,7 @@ class SignupPanel(discord.ui.View):
             await asyncio.sleep(5)
             await error_msg.delete()
             return False
+
 
 
 @bot.command()
