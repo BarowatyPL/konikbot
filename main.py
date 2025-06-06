@@ -16,6 +16,7 @@ from discord import SelectOption, Interaction, ButtonStyle
 
 
 
+
 # Flask do keep-alive
 app = Flask('')
 
