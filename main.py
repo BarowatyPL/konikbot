@@ -1390,6 +1390,10 @@ async def dodaj_reputacje(user_id: int, ilosc: int):
         ON CONFLICT (user_id) DO UPDATE
         SET punkty = reputacja.punkty + $2
     ''', user_id, ilosc)
+    
+async def pobierz_reputacje(user_id: int) -> int:
+    row = await db.fetchrow("SELECT punkty FROM reputacja WHERE user_id = $1", user_id)
+    return row["punkty"] if row else 0
 
 
 @bot.command(name="rep")
