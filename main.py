@@ -134,6 +134,45 @@ async def create_tables():
                 liczba INTEGER NOT NULL DEFAULT 0
             );
         ''')
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS reputacja_log (
+        giver_id BIGINT NOT NULL,
+        receiver_id BIGINT NOT NULL,
+        last_given TIMESTAMP NOT NULL,
+        PRIMARY KEY (giver_id, receiver_id)
+    );
+''')
+
+async def zarejestruj_reputacje(giver_id: int, receiver_id: int):
+    await db.execute('''
+        INSERT INTO reputacja_log (giver_id, receiver_id, last_given)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (giver_id, receiver_id)
+        DO UPDATE SET last_given = $3
+    ''', giver_id, receiver_id, datetime.utcnow())
+
+
+async def moze_dac_reputacje(giver_id: int, receiver_id: int, is_admin: bool) -> bool:
+    if is_admin:
+        return True
+
+    row = await db.fetchrow('''
+        SELECT last_given FROM reputacja_log
+        WHERE giver_id = $1 AND receiver_id = $2
+    ''', giver_id, receiver_id)
+
+    if not row:
+        return True
+
+    ostatnio = row["last_given"]
+    teraz = datetime.utcnow()
+
+    return (teraz - ostatnio) > timedelta(hours=24)
+
+async def log_reputacja(giver: discord.Member, receiver: discord.Member, zmiana: int):
+    akcja = "➕ Dał" if zmiana > 0 else "➖ Odjął"
+    await log_to_discord(f"{akcja} reputację: {giver.mention} ➝ {receiver.mention} ({zmiana:+} pkt)")
+
 
 
 async def get_nicknames(user_id: int) -> list[tuple[str, str]]:
@@ -1026,24 +1065,26 @@ async def lista(ctx):
 
 @bot.command(name="profil")
 async def profil(ctx, member: discord.Member = None):
-    """Pokazuje profil gracza."""
     if member is None:
         member = ctx.author
 
     gracz = await pobierz_gracza(str(member))
+    reputacja_pkt = await pobierz_reputacje(member.id)
 
     if not gracz:
         await ctx.send(f"❌ {member.mention} nie ma jeszcze profilu w rankingu.")
         return
 
-    embed = discord.Embed(title=f"Profil gracza {member.name}", color=discord.Color.blue())
+    embed = discord.Embed(title=f"📊 Profil gracza {member.display_name}", color=discord.Color.blue())
     embed.add_field(name="ELO", value=gracz["elo"], inline=True)
-    embed.add_field(name="Zagrane mecze", value=gracz["zagrane"], inline=True)
+    embed.add_field(name="Zagrane", value=gracz["zagrane"], inline=True)
     embed.add_field(name="Wygrane", value=gracz["wygrane"], inline=True)
     embed.add_field(name="Przegrane", value=gracz["przegrane"], inline=True)
     embed.add_field(name="MVP", value=gracz["mvp"], inline=True)
+    embed.add_field(name="👍 Reputacja", value=reputacja_pkt, inline=True)
 
     await ctx.send(embed=embed)
+
 
 @bot.command(name="ranking")
 async def ranking(ctx, top: int = 10):
@@ -1372,9 +1413,67 @@ async def nicki(ctx, member: discord.Member = None):
         await ctx.send(f"📋 Nicki zapisane dla {target.mention}:\n{formatted}", delete_after=10)
 
 
+# ---------- KOMENDY REPUTACJA ---------- #
 
+@bot.command(name="rep")
+async def rep(ctx, member: discord.Member):
+    if member.id == ctx.author.id:
+        await ctx.send("❌ Nie możesz przyznać reputacji samemu sobie.", delete_after=10)
+        return
 
+    is_admin = ctx.author.guild_permissions.administrator
+    allowed = await moze_dac_reputacje(ctx.author.id, member.id, is_admin)
 
+    if not allowed:
+        await ctx.send("⏳ Możesz przyznać reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
+        return
+
+    await dodaj_reputacje(member.id, 1)
+    await zarejestruj_reputacje(ctx.author.id, member.id)
+    await log_reputacja(ctx.author, member, +1)
+    aktualna = await pobierz_reputacje(member.id)
+    await ctx.send(f"👍 {ctx.author.mention} przyznał 1 punkt reputacji dla {member.mention} (łącznie: **{aktualna}**).")
+
+@bot.command(name="toprep")
+async def toprep(ctx, limit: int = 10):
+    rows = await db.fetch('''
+        SELECT user_id, punkty
+        FROM reputacja
+        ORDER BY punkty DESC
+        LIMIT $1
+    ''', limit)
+
+    if not rows:
+        await ctx.send("🔎 Brak danych o reputacji.")
+        return
+
+    opis = ""
+    for i, row in enumerate(rows, start=1):
+        member = ctx.guild.get_member(row["user_id"])
+        nick = member.display_name if member else f"<ID: {row['user_id']}>"
+        opis += f"**{i}.** {nick} – {row['punkty']} pkt\n"
+
+    embed = discord.Embed(title=f"🏅 Top {limit} reputacji", description=opis, color=discord.Color.purple())
+    await ctx.send(embed=embed)
+
+@bot.command(name="minusrep")
+async def minusrep(ctx, member: discord.Member):
+    if member.id == ctx.author.id:
+        await ctx.send("❌ Nie możesz zabrać reputacji samemu sobie.", delete_after=10)
+        return
+
+    is_admin = ctx.author.guild_permissions.administrator
+    allowed = await moze_dac_reputacje(ctx.author.id, member.id, is_admin)
+
+    if not allowed:
+        await ctx.send("⏳ Możesz zmienić reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
+        return
+
+    await dodaj_reputacje(member.id, -1)
+    await zarejestruj_reputacje(ctx.author.id, member.id)
+    await log_reputacja(ctx.author, member, -1)
+    aktualna = await pobierz_reputacje(member.id)
+    await ctx.send(f"👎 {ctx.author.mention} odjął 1 punkt reputacji {member.mention} (łącznie: **{aktualna}**).")
 
 
 # ---------- KOMENDY DLA BEKI ---------- #
