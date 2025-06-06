@@ -418,7 +418,7 @@ async def info(ctx):
 async def opis(ctx):
     """Wyświetla wersję bota i jego przeznaczenie."""
     embed = discord.Embed(
-        title="🤖 KonikBOT – Wersja 5.3",
+        title="🤖 KonikBOT – Wersja 5.4",
         description=(
             "KonikBOT stworzony do organizowania gier customowych w League of Legends.\n\n"
             "Umożliwia tworzenie zapisów, organizowanie gier tematycznych z zachowaniem ról.\n"
@@ -1421,6 +1421,12 @@ async def rep(ctx, member: discord.Member, wartosc: int = 1):
     await ctx.send(f"{emoji} {ctx.author.mention} {'dodał' if wartosc > 0 else 'odjął'} reputację {member.mention} ({'+' if wartosc > 0 else ''}{wartosc} pkt, razem: **{aktualna}**)")
 
 
+@bot.command(name="reputacja")
+async def reputacja(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    punkty = await pobierz_reputacje(member.id)
+
+    await ctx.send(f"📊 {member.mention} ma **{punkty}** punktów reputacji.")
 
 
 
