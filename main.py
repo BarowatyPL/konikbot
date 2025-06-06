@@ -1416,6 +1416,15 @@ async def nicki(ctx, member: discord.Member = None):
 
 # ---------- KOMENDY REPUTACJA ---------- #
 
+async def dodaj_reputacje(user_id: int, ilosc: int):
+    await db.execute('''
+        INSERT INTO reputacja (user_id, punkty)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id) DO UPDATE
+        SET punkty = reputacja.punkty + $2
+    ''', user_id, ilosc)
+
+
 @bot.command(name="rep")
 async def rep(ctx, member: discord.Member, wartosc: int = 1):
     if member.id == ctx.author.id:
