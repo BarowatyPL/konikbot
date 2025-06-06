@@ -1416,23 +1416,31 @@ async def nicki(ctx, member: discord.Member = None):
 # ---------- KOMENDY REPUTACJA ---------- #
 
 @bot.command(name="rep")
-async def rep(ctx, member: discord.Member):
+async def rep(ctx, member: discord.Member, wartosc: int = 1):
     if member.id == ctx.author.id:
-        await ctx.send("❌ Nie możesz przyznać reputacji samemu sobie.", delete_after=10)
+        await ctx.send("❌ Nie możesz zmieniać reputacji samemu sobie.", delete_after=10)
+        return
+
+    if wartosc not in (-1, 1):
+        await ctx.send("⚠️ Możesz tylko dodać lub odjąć 1 punkt (wartość: `1` lub `-1`).", delete_after=10)
         return
 
     is_admin = ctx.author.guild_permissions.administrator
     allowed = await moze_dac_reputacje(ctx.author.id, member.id, is_admin)
 
     if not allowed:
-        await ctx.send("⏳ Możesz przyznać reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
+        await ctx.send("⏳ Możesz zmienić reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
         return
 
-    await dodaj_reputacje(member.id, 1)
+    await dodaj_reputacje(member.id, wartosc)
     await zarejestruj_reputacje(ctx.author.id, member.id)
-    await log_reputacja(ctx.author, member, +1)
+    await log_reputacja(ctx.author, member, wartosc)
+
     aktualna = await pobierz_reputacje(member.id)
-    await ctx.send(f"👍 {ctx.author.mention} przyznał 1 punkt reputacji dla {member.mention} (łącznie: **{aktualna}**).")
+    emoji = "👍" if wartosc > 0 else "👎"
+    await ctx.send(f"{emoji} {ctx.author.mention} {'dodał' if wartosc > 0 else 'odjął'} reputację {member.mention} ({'+' if wartosc > 0 else ''}{wartosc} pkt, razem: **{aktualna}**)")
+
+
 
 @bot.command(name="toprep")
 async def toprep(ctx, limit: int = 10):
@@ -1455,26 +1463,6 @@ async def toprep(ctx, limit: int = 10):
 
     embed = discord.Embed(title=f"🏅 Top {limit} reputacji", description=opis, color=discord.Color.purple())
     await ctx.send(embed=embed)
-
-@bot.command(name="minusrep")
-async def minusrep(ctx, member: discord.Member):
-    if member.id == ctx.author.id:
-        await ctx.send("❌ Nie możesz zabrać reputacji samemu sobie.", delete_after=10)
-        return
-
-    is_admin = ctx.author.guild_permissions.administrator
-    allowed = await moze_dac_reputacje(ctx.author.id, member.id, is_admin)
-
-    if not allowed:
-        await ctx.send("⏳ Możesz zmienić reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
-        return
-
-    await dodaj_reputacje(member.id, -1)
-    await zarejestruj_reputacje(ctx.author.id, member.id)
-    await log_reputacja(ctx.author, member, -1)
-    aktualna = await pobierz_reputacje(member.id)
-    await ctx.send(f"👎 {ctx.author.mention} odjął 1 punkt reputacji {member.mention} (łącznie: **{aktualna}**).")
-
 
 # ---------- KOMENDY DLA BEKI ---------- #
 
