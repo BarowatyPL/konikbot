@@ -68,6 +68,7 @@ signup_lock = asyncio.Lock()
 player_nicknames = {}
 db_pool = None
 last_click_times = {}  # user_id: datetime
+rep_cooldown = {}
 
 
 RANGA_EMOJI = {
@@ -135,40 +136,6 @@ async def create_tables():
                 liczba INTEGER NOT NULL DEFAULT 0
             );
         ''')
-    await db.execute('''
-    CREATE TABLE IF NOT EXISTS reputacja_log (
-        giver_id BIGINT NOT NULL,
-        receiver_id BIGINT NOT NULL,
-        last_given TIMESTAMP NOT NULL,
-        PRIMARY KEY (giver_id, receiver_id)
-    );
-''')
-
-async def zarejestruj_reputacje(giver_id: int, receiver_id: int):
-    await db.execute('''
-        INSERT INTO reputacja_log (giver_id, receiver_id, last_given)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (giver_id, receiver_id)
-        DO UPDATE SET last_given = $3
-    ''', giver_id, receiver_id, datetime.utcnow())
-
-
-async def moze_dac_reputacje(giver_id: int, receiver_id: int, is_admin: bool) -> bool:
-    if is_admin:
-        return True
-
-    row = await db.fetchrow('''
-        SELECT last_given FROM reputacja_log
-        WHERE giver_id = $1 AND receiver_id = $2
-    ''', giver_id, receiver_id)
-
-    if not row:
-        return True
-
-    ostatnio = row["last_given"]
-    teraz = datetime.utcnow()
-
-    return (teraz - ostatnio) > timedelta(hours=24)
 
 async def log_reputacja(giver: discord.Member, receiver: discord.Member, zmiana: int):
     akcja = "➕ Dał" if zmiana > 0 else "➖ Odjął"
@@ -1432,23 +1399,28 @@ async def rep(ctx, member: discord.Member, wartosc: int = 1):
         return
 
     if wartosc not in (-1, 1):
-        await ctx.send("⚠️ Możesz tylko dodać lub odjąć 1 punkt (wartość: `1` lub `-1`).", delete_after=10)
+        await ctx.send("⚠️ Możesz tylko dodać lub odjąć 1 punkt (`1` lub `-1`).", delete_after=10)
         return
 
     is_admin = ctx.author.guild_permissions.administrator
-    allowed = await moze_dac_reputacje(ctx.author.id, member.id, is_admin)
+    klucz = (ctx.author.id, member.id)
+    teraz = datetime.utcnow()
 
-    if not allowed:
-        await ctx.send("⏳ Możesz zmienić reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
-        return
+    if not is_admin:
+        ostatnio = rep_cooldown.get(klucz)
+        if ostatnio and (teraz - ostatnio).total_seconds() < 86400:
+            await ctx.send("⏳ Możesz zmienić reputację tej osobie tylko raz na 24 godziny.", delete_after=10)
+            return
+        rep_cooldown[klucz] = teraz
 
     await dodaj_reputacje(member.id, wartosc)
-    await zarejestruj_reputacje(ctx.author.id, member.id)
     await log_reputacja(ctx.author, member, wartosc)
-
     aktualna = await pobierz_reputacje(member.id)
+
     emoji = "👍" if wartosc > 0 else "👎"
     await ctx.send(f"{emoji} {ctx.author.mention} {'dodał' if wartosc > 0 else 'odjął'} reputację {member.mention} ({'+' if wartosc > 0 else ''}{wartosc} pkt, razem: **{aktualna}**)")
+
+
 
 
 
