@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 import asyncio
 import os
 import json
@@ -217,23 +217,21 @@ async def weekly_hof():
                     voice_seconds = 0
             """)
 
-@bot.command(name="drop_table")
+@bot.command(name="fix_stats_userid")
 @commands.has_permissions(administrator=True)
-async def drop_table(ctx, table_name: str):
-    """Usuwa wskazaną tabelę z bazy danych (tylko dla administratorów)."""
-    allowed_tables = ["stats", "voice_sessions", "gracze", "reputacja", "ostrzezenia", "lol_nicknames", "reputacja_log"]
-    
-    if table_name not in allowed_tables:
-        await ctx.send(f"❌ Tabela `{table_name}` nie jest dozwolona do usunięcia lub nie istnieje na liście dozwolonych.")
-        return
-
+async def fix_stats_userid(ctx):
+    """Naprawia kolumnę user_id w tabeli stats (ustawia BIGINT)."""
     try:
         async with db_pool.acquire() as conn:
-            await conn.execute(f'DROP TABLE IF EXISTS {table_name};')
-        await ctx.send(f"🗑️ Tabela `{table_name}` została usunięta.")
-        await log_to_discord(f"⚠️ {ctx.author.mention} usunął tabelę `{table_name}` z bazy danych.")
+            await conn.execute("""
+                ALTER TABLE stats
+                ALTER COLUMN user_id TYPE BIGINT
+            """)
+        await ctx.send("✅ Kolumna `user_id` w tabeli `stats` została zmieniona na `BIGINT`.")
+        await log_to_discord(f"🛠️ {ctx.author.mention} zmienił typ `user_id` na BIGINT w `stats`.")
     except Exception as e:
-        await ctx.send(f"❌ Wystąpił błąd podczas usuwania tabeli: {e}")
+        await ctx.send(f"❌ Błąd podczas zmiany typu kolumny: {e}")
+
 
 
 
