@@ -217,20 +217,28 @@ async def weekly_hof():
                     voice_seconds = 0
             """)
 
-@bot.command(name="fix_stats_userid")
+@bot.command(name="fix_stats_force")
 @commands.has_permissions(administrator=True)
-async def fix_stats_userid(ctx):
-    """Naprawia kolumnę user_id w tabeli stats (ustawia BIGINT)."""
+async def fix_stats_force(ctx):
+    """Usuwa tabelę stats i tworzy ją z poprawnym typem BIGINT dla user_id."""
     try:
         async with db_pool.acquire() as conn:
+            await conn.execute("DROP TABLE IF EXISTS stats;")
             await conn.execute("""
-                ALTER TABLE stats
-                ALTER COLUMN user_id TYPE BIGINT
+                CREATE TABLE stats (
+                    user_id BIGINT PRIMARY KEY,
+                    messages INTEGER DEFAULT 0,
+                    mentions INTEGER DEFAULT 0,
+                    hearts_received INTEGER DEFAULT 0,
+                    flags_received INTEGER DEFAULT 0,
+                    voice_seconds INTEGER DEFAULT 0
+                );
             """)
-        await ctx.send("✅ Kolumna `user_id` w tabeli `stats` została zmieniona na `BIGINT`.")
-        await log_to_discord(f"🛠️ {ctx.author.mention} zmienił typ `user_id` na BIGINT w `stats`.")
+        await ctx.send("✅ Tabela `stats` została naprawiona (user_id = BIGINT).")
+        await log_to_discord(f"🛠️ {ctx.author.mention} wykonał wymuszoną naprawę `stats` (DROP + CREATE).")
     except Exception as e:
-        await ctx.send(f"❌ Błąd podczas zmiany typu kolumny: {e}")
+        await ctx.send(f"❌ Błąd przy naprawie tabeli `stats`: {e}")
+
 
 
 
