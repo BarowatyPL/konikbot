@@ -217,6 +217,11 @@ async def weekly_hof():
                     voice_seconds = 0
             """)
 
+@bot.command(name="hof")
+@commands.has_permissions(administrator=True)
+async def manual_hof(ctx):
+    await send_hof_embed()
+    await ctx.send("🏆 Hall of Fame został wyświetlony.")
 
 
 @weekly_hof.before_loop
