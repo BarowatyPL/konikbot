@@ -134,6 +134,23 @@ async def create_tables():
                 liczba INTEGER NOT NULL DEFAULT 0
             );
         ''')
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS voice_sessions (
+                user_id BIGINT PRIMARY KEY,
+                join_time TIMESTAMP
+            );
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS stats (
+                user_id BIGINT PRIMARY KEY,
+                messages INTEGER DEFAULT 0,
+                mentions INTEGER DEFAULT 0,
+                hearts_received INTEGER DEFAULT 0,
+                flags_received INTEGER DEFAULT 0,
+                voice_seconds INTEGER DEFAULT 0
+            );
+        """)
+    print("✅ Wszystkie tabele zostały utworzone.")
 
 
 @bot.event
@@ -199,30 +216,6 @@ async def weekly_hof():
                     flags_received = 0,
                     voice_seconds = 0
             """)
-
-@bot.command()
-@commands.is_owner()
-async def droptablestats(ctx):
-    async with db_pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS stats CASCADE")
-    await ctx.send("Tabela `stats` została usunięta.")
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
