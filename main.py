@@ -206,16 +206,6 @@ async def drop_stats_table(ctx):
     async with db_pool.acquire() as conn:
         await conn.execute("DROP TABLE IF EXISTS stats")
         await ctx.send("🗑️ Tabela `stats` została usunięta.")
-
-@bot.command(name="dropstats2")
-@commands.has_permissions(administrator=True)
-async def drop_stats_table(ctx):
-    async with db_pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS voice_sessions")
-        await ctx.send("🗑️ Tabela `stats` została usunięta.")
-        
-@bot.command(name="createstats")
-@commands.has_permissions(administrator=True)
 async def create_stats_table(ctx):
     async with db_pool.acquire() as conn:
         await conn.execute("""
@@ -229,6 +219,14 @@ async def create_stats_table(ctx):
             )
         """)
         await ctx.send("✅ Tabela `stats` została utworzona na nowo.")
+
+@bot.command(name="dropstats2")
+@commands.has_permissions(administrator=True)
+async def drop_stats_table(ctx):
+    async with db_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS voice_sessions")
+        await ctx.send("🗑️ Tabela `stats` została usunięta.")
+        
 
 
 
