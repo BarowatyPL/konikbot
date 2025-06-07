@@ -200,32 +200,13 @@ async def weekly_hof():
                     voice_seconds = 0
             """)
 
-@bot.command(name="dropstats")
-@commands.has_permissions(administrator=True)
-async def drop_stats_table(ctx):
+@bot.command()
+@commands.is_owner()
+async def droptablestats(ctx):
     async with db_pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS stats")
-        await ctx.send("🗑️ Tabela `stats` została usunięta.")
-async def create_stats_table(ctx):
-    async with db_pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE stats (
-                user_id BIGINT PRIMARY KEY,
-                messages INTEGER DEFAULT 0,
-                mentions INTEGER DEFAULT 0,
-                hearts_received INTEGER DEFAULT 0,
-                flags_received INTEGER DEFAULT 0,
-                voice_seconds INTEGER DEFAULT 0
-            )
-        """)
-        await ctx.send("✅ Tabela `stats` została utworzona na nowo.")
+        await conn.execute("DROP TABLE IF EXISTS stats CASCADE")
+    await ctx.send("Tabela `stats` została usunięta.")
 
-@bot.command(name="dropstats2")
-@commands.has_permissions(administrator=True)
-async def drop_stats_table(ctx):
-    async with db_pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS voice_sessions")
-        await ctx.send("🗑️ Tabela `stats` została usunięta.")
         
 
 
