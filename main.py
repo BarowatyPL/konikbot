@@ -172,7 +172,7 @@ async def on_message(message):
 @bot.event
 async def on_voice_state_update(member, before, after):
     user_id = member.id
-    now = datetime.now(timezone.utc)  # nowoczesny sposób
+    now = datetime.utcnow()
 
     async with db_pool.acquire() as conn:
         if before.channel is None and after.channel is not None:
