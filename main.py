@@ -304,28 +304,61 @@ async def send_hall_of_fame_embed():
 
 async def send_hof_embed():
     async with db_pool.acquire() as conn:
-        top_messages = await conn.fetch("SELECT user_id, messages FROM stats ORDER BY messages DESC LIMIT 1")
-        top_mentions = await conn.fetch("SELECT user_id, mentions FROM stats ORDER BY mentions DESC LIMIT 1")
-        top_hearts = await conn.fetch("SELECT user_id, hearts_received FROM stats ORDER BY hearts_received DESC LIMIT 1")
-        top_flags = await conn.fetch("SELECT user_id, flags_received FROM stats ORDER BY flags_received DESC LIMIT 1")
-        top_voice = await conn.fetch("SELECT user_id, voice_seconds FROM stats ORDER BY voice_seconds DESC LIMIT 1")
 
-    def format_stat(row, label, unit=""):
-        if not row or row[0][label] == 0:
-            return "Brak danych"
-        user_id = row[0]["user_id"]
-        value = row[0][label]
-        return f"<@{user_id}> – **{value} {unit}**"
+        async def top(stat):
+            row = await conn.fetchrow(f"""
+                SELECT user_id, {stat}
+                FROM stats
+                ORDER BY {stat} DESC
+                LIMIT 1
+            """)
+            return row if row and row[stat] > 0 else None
 
-    embed = discord.Embed(title="🏆 Hall of Fame Tygodnia", color=discord.Color.gold())
-    embed.add_field(name="💬 Najwięcej wiadomości", value=format_stat(top_messages, "messages"), inline=False)
-    embed.add_field(name="📣 Najwięcej @wzmianek", value=format_stat(top_mentions, "mentions"), inline=False)
-    embed.add_field(name="❤️ Najwięcej reakcji ❤️", value=format_stat(top_hearts, "hearts_received"), inline=False)
-    embed.add_field(name="🇺🇦 Najwięcej 🇺🇦", value=format_stat(top_flags, "flags_received"), inline=False)
-    embed.add_field(name="🎙️ Najwięcej czasu na VC", value=format_stat(top_voice, "voice_seconds", "sek"), inline=False)
+        msg = await top("messages")
+        ment = await top("mentions")
+        hearts = await top("hearts_received")
+        flags = await top("flags_received")
+        voice = await top("voice_seconds")
 
-    channel = bot.get_channel(HOF_CHANNEL_ID)  # <- podmień na ID kanału
-    await channel.send(embed=embed)
+    def user_display(uid):
+        user = bot.get_user(uid)
+        return user.mention if user else f"<@{uid}>"
+
+    embed = discord.Embed(title="🏆 Hall of Fame – Tydzień", color=discord.Color.gold())
+
+    embed.add_field(
+        name="📨 Najwięcej wiadomości",
+        value=f"{user_display(msg['user_id'])} – {msg['messages']}" if msg else "Brak danych",
+        inline=False
+    )
+    embed.add_field(
+        name="🔔 Najwięcej wspomnień",
+        value=f"{user_display(ment['user_id'])} – {ment['mentions']}" if ment else "Brak danych",
+        inline=False
+    )
+    embed.add_field(
+        name="❤️ Najwięcej ❤️",
+        value=f"{user_display(hearts['user_id'])} – {hearts['hearts_received']}" if hearts else "Brak danych",
+        inline=False
+    )
+    embed.add_field(
+        name="🇺🇦 Największy ukrainiec 🇺🇦",
+        value=f"{user_display(flags['user_id'])} – {flags['flags_received']}" if flags else "Brak danych",
+        inline=False
+    )
+    if voice:
+        seconds = voice["voice_seconds"]
+        hours, minutes = divmod(seconds, 3600)
+        minutes //= 60
+        value = f"{user_display(voice['user_id'])} – {hours}h {minutes}m"
+    else:
+        value = "Brak danych"
+    embed.add_field(name="🎙️ Najwięcej czasu na VC", value=value, inline=False)
+
+    channel = bot.get_channel(1216013668773265458)  # <- podmień ID
+    if channel:
+        await channel.send(embed=embed)
+
 
 
 
