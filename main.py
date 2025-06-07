@@ -356,6 +356,7 @@ async def send_hof_embed():
 
 
 
+
 @tasks.loop(seconds=60)
 async def check_event_time():
     global event_time, reminder_sent, tematyczne_event_time, tematyczne_reminder_sent
