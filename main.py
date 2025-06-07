@@ -15,8 +15,6 @@ from discord.ui import View, Select, Button
 from discord import SelectOption, Interaction, ButtonStyle
 
 
-
-
 # Flask do keep-alive
 app = Flask('')
 
@@ -136,6 +134,93 @@ async def create_tables():
                 liczba INTEGER NOT NULL DEFAULT 0
             );
         ''')
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS stats (
+                user_id BIGINT PRIMARY KEY,
+                messages INTEGER DEFAULT 0,
+                mentions INTEGER DEFAULT 0,
+                hearts_received INTEGER DEFAULT 0,
+                flags_received INTEGER DEFAULT 0,
+                voice_seconds INTEGER DEFAULT 0
+            );
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS voice_sessions (
+                user_id BIGINT PRIMARY KEY,
+                join_time TIMESTAMP
+            );
+        """)
+
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO stats (user_id, messages, mentions)
+            VALUES ($1, 1, $2)
+            ON CONFLICT (user_id)
+            DO UPDATE SET messages = stats.messages + 1, mentions = stats.mentions + $2;
+        """, message.author.id, len(message.mentions))
+
+    await bot.process_commands(message)
+
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    user_id = member.id
+    now = datetime.utcnow()
+
+    if before.channel is None and after.channel is not None:
+        cursor.execute("INSERT INTO voice_sessions (user_id, join_time) VALUES (?, ?)", (user_id, now))
+    elif before.channel is not None and after.channel is None:
+        cursor.execute("SELECT join_time FROM voice_sessions WHERE user_id = ? ORDER BY join_time DESC LIMIT 1", (user_id,))
+        result = cursor.fetchone()
+        if result:
+            join_time = datetime.fromisoformat(result[0])
+            duration = int((now - join_time).total_seconds())
+            cursor.execute("UPDATE stats SET voice_seconds = voice_seconds + ? WHERE user_id = ?", (duration, user_id))
+            cursor.execute("DELETE FROM voice_sessions WHERE user_id = ?", (user_id,))
+    conn.commit()
+
+@tasks.loop(minutes=1)
+async def weekly_hof():
+    now = datetime.utcnow()
+    if now.weekday() == 6 and now.hour == 16 and now.minute == 0:
+        await send_hof_embed()
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE stats
+                SET messages = 0,
+                    mentions = 0,
+                    hearts_received = 0,
+                    flags_received = 0,
+                    voice_seconds = 0
+            """)
+
+
+@weekly_hof.before_loop
+async def before():
+    await bot.wait_until_ready()
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    if user.bot or not reaction.message.author:
+        return
+
+    author_id = reaction.message.author.id
+    emoji = str(reaction.emoji)
+
+    cursor.execute("INSERT OR IGNORE INTO stats (user_id) VALUES (?)", (author_id,))
+    if emoji == "❤️":
+        cursor.execute("UPDATE stats SET hearts_received = hearts_received + 1 WHERE user_id = ?", (author_id,))
+    elif emoji == "🇺🇦":
+        cursor.execute("UPDATE stats SET flags_received = flags_received + 1 WHERE user_id = ?", (author_id,))
+    conn.commit()
+
 
 async def log_reputacja(giver: discord.Member, receiver: discord.Member, zmiana: int):
     akcja = "➕ Dał" if zmiana > 0 else "➖ Odjął"
@@ -175,7 +260,51 @@ async def update_rank(user_id: int, nickname: str, new_rank: str):
             """,
             new_rank, user_id, nickname
         )
+        
 
+@tasks.loop(minutes=1)
+async def weekly_hall_of_fame():
+    now = datetime.utcnow()
+    if now.weekday() == 6 and now.hour == 16 and now.minute == 0:
+        await send_hall_of_fame_embed()
+
+
+async def send_hall_of_fame_embed():
+    embed = discord.Embed(title="🏆 Hall of Fame – Tydzień", color=discord.Color.gold())
+    embed.add_field(name="📨 Najwięcej wiadomości", value="**UserA** – 230", inline=False)
+    embed.add_field(name="🔔 Najwięcej wspomnień", value="**UserB** – 85", inline=False)
+    embed.add_field(name="❤️ Najwięcej reakcji ❤️", value="**UserC** – 120", inline=False)
+    embed.add_field(name="🇺🇦 Najwięcej 🇺🇦 reakcji", value="**UserD** – 43", inline=False)
+    embed.add_field(name="🎙️ Najwięcej czasu na VC", value="**UserE** – 7h 42m", inline=False)
+    
+    channel = your_bot.get_channel(YOUR_CHANNEL_ID)
+    await channel.send(embed=embed)
+
+async def send_hof_embed():
+    def top(stat):
+        cursor.execute(f"SELECT user_id, {stat} FROM stats ORDER BY {stat} DESC LIMIT 1")
+        return cursor.fetchone()
+
+    msg = top("messages")
+    ment = top("mentions")
+    hearts = top("hearts_received")
+    flags = top("flags_received")
+    voice = top("voice_seconds")
+
+    def user_display(uid): return bot.get_user(uid).mention if bot.get_user(uid) else f"<@{uid}>"
+
+    embed = discord.Embed(title="🏆 Hall of Fame – Tydzień", color=discord.Color.gold())
+    if msg: embed.add_field(name="📨 Najwięcej wiadomości", value=f"{user_display(msg[0])} – {msg[1]}", inline=False)
+    if ment: embed.add_field(name="🔔 Najwięcej wspomnień", value=f"{user_display(ment[0])} – {ment[1]}", inline=False)
+    if hearts: embed.add_field(name="❤️ Najwięcej ❤️", value=f"{user_display(hearts[0])} – {hearts[1]}", inline=False)
+    if flags: embed.add_field(name="🇺🇦 Największy ukrainiec 🇺🇦", value=f"{user_display(flags[0])} – {flags[1]}", inline=False)
+    if voice:
+        hours, remainder = divmod(voice[1], 3600)
+        minutes = remainder // 60
+        embed.add_field(name="🎙️ Najwięcej czasu na VC", value=f"{user_display(voice[0])} – {hours}h {minutes}m", inline=False)
+
+    channel = bot.get_channel(YOUR_CHANNEL_ID)
+    await channel.send(embed=embed)
 
 
 @tasks.loop(seconds=60)
