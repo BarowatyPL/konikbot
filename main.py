@@ -137,7 +137,7 @@ async def create_tables():
     async with db_pool.acquire() as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS stats (
-                user_id BIGINT PRIMARY KEY,
+                user_id INTEGER PRIMARY KEY,
                 messages INTEGER DEFAULT 0,
                 mentions INTEGER DEFAULT 0,
                 hearts_received INTEGER DEFAULT 0,
