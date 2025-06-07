@@ -172,19 +172,35 @@ async def on_message(message):
 @bot.event
 async def on_voice_state_update(member, before, after):
     user_id = member.id
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)  # nowoczesny sposób
 
-    if before.channel is None and after.channel is not None:
-        cursor.execute("INSERT INTO voice_sessions (user_id, join_time) VALUES (?, ?)", (user_id, now))
-    elif before.channel is not None and after.channel is None:
-        cursor.execute("SELECT join_time FROM voice_sessions WHERE user_id = ? ORDER BY join_time DESC LIMIT 1", (user_id,))
-        result = cursor.fetchone()
-        if result:
-            join_time = datetime.fromisoformat(result[0])
-            duration = int((now - join_time).total_seconds())
-            cursor.execute("UPDATE stats SET voice_seconds = voice_seconds + ? WHERE user_id = ?", (duration, user_id))
-            cursor.execute("DELETE FROM voice_sessions WHERE user_id = ?", (user_id,))
-    conn.commit()
+    async with db_pool.acquire() as conn:
+        if before.channel is None and after.channel is not None:
+            # Dołączenie do VC
+            await conn.execute("""
+                INSERT INTO voice_sessions (user_id, join_time)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET join_time = EXCLUDED.join_time
+            """, user_id, now)
+
+        elif before.channel is not None and after.channel is None:
+            # Opuszczenie VC
+            row = await conn.fetchrow(
+                "SELECT join_time FROM voice_sessions WHERE user_id = $1", user_id
+            )
+
+            if row and row["join_time"]:
+                join_time = row["join_time"]
+                duration = int((now - join_time).total_seconds())
+
+                await conn.execute("""
+                    INSERT INTO stats (user_id, voice_seconds)
+                    VALUES ($1, $2)
+                    ON CONFLICT (user_id)
+                    DO UPDATE SET voice_seconds = stats.voice_seconds + $2
+                """, user_id, duration)
+
+                await conn.execute("DELETE FROM voice_sessions WHERE user_id = $1", user_id)
 
 @tasks.loop(minutes=1)
 async def weekly_hof():
