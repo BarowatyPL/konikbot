@@ -134,17 +134,6 @@ async def create_tables():
                 liczba INTEGER NOT NULL DEFAULT 0
             );
         ''')
-    async with db_pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS stats (
-                user_id INTEGER PRIMARY KEY,
-                messages INTEGER DEFAULT 0,
-                mentions INTEGER DEFAULT 0,
-                hearts_received INTEGER DEFAULT 0,
-                flags_received INTEGER DEFAULT 0,
-                voice_seconds INTEGER DEFAULT 0
-            );
-        """)
 
 
 @bot.event
@@ -211,16 +200,36 @@ async def weekly_hof():
                     voice_seconds = 0
             """)
 
-@bot.command(name="drop_stats")
+@bot.command(name="dropstats")
 @commands.has_permissions(administrator=True)
-async def drop_stats(ctx):
-    """Usuwa tabelę `stats` z bazy danych."""
-    try:
-        async with db_pool.acquire() as conn:
-            await conn.execute("DROP TABLE IF EXISTS stats;")
+async def drop_stats_table(ctx):
+    async with db_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS stats")
         await ctx.send("🗑️ Tabela `stats` została usunięta.")
-    except Exception as e:
-        await ctx.send(f"❌ Błąd przy usuwaniu tabeli: {e}")
+
+@bot.command(name="dropstats2")
+@commands.has_permissions(administrator=True)
+async def drop_stats_table(ctx):
+    async with db_pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS voice_sessions")
+        await ctx.send("🗑️ Tabela `stats` została usunięta.")
+        
+@bot.command(name="createstats")
+@commands.has_permissions(administrator=True)
+async def create_stats_table(ctx):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE stats (
+                user_id BIGINT PRIMARY KEY,
+                messages INTEGER DEFAULT 0,
+                mentions INTEGER DEFAULT 0,
+                hearts_received INTEGER DEFAULT 0,
+                flags_received INTEGER DEFAULT 0,
+                voice_seconds INTEGER DEFAULT 0
+            )
+        """)
+        await ctx.send("✅ Tabela `stats` została utworzona na nowo.")
+
 
 
 
