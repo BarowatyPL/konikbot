@@ -201,6 +201,36 @@ async def weekly_hof():
                     voice_seconds = 0
             """)
 
+@bot.command(name="drop_table")
+@commands.has_permissions(administrator=True)
+async def drop_table(ctx, table_name: str):
+    """Usuwa wskazaną tabelę z bazy danych (tylko dla administratorów)."""
+    allowed_tables = ["stats", "voice_sessions", "gracze", "reputacja", "ostrzezenia", "lol_nicknames", "reputacja_log"]
+    
+    if table_name not in allowed_tables:
+        await ctx.send(f"❌ Tabela `{table_name}` nie jest dozwolona do usunięcia lub nie istnieje na liście dozwolonych.")
+        return
+
+    try:
+        async with db_pool.acquire() as conn:
+            await conn.execute(f'DROP TABLE IF EXISTS {table_name};')
+        await ctx.send(f"🗑️ Tabela `{table_name}` została usunięta.")
+        await log_to_discord(f"⚠️ {ctx.author.mention} usunął tabelę `{table_name}` z bazy danych.")
+    except Exception as e:
+        await ctx.send(f"❌ Wystąpił błąd podczas usuwania tabeli: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @weekly_hof.before_loop
 async def before():
