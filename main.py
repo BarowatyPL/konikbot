@@ -1646,47 +1646,6 @@ async def toprep(ctx, limit: int = 10):
     await ctx.send(embed=embed)
 
 
-async def send_hof_embed():
-    async with db_pool.acquire() as conn:
-
-        async def top(stat):
-            row = await conn.fetchrow(f"""
-                SELECT user_id, {stat}
-                FROM stats
-                ORDER BY {stat} DESC
-                LIMIT 1
-            """)
-            return row
-
-        msg = await top("messages")
-        ment = await top("mentions")
-        hearts = await top("hearts_received")
-        flags = await top("flags_received")
-        voice = await top("voice_seconds")
-
-    def user_display(uid):
-        member = bot.get_user(uid)
-        return member.mention if member else f"<@{uid}>"
-
-    embed = discord.Embed(title="🏆 Hall of Fame – Tydzień", color=discord.Color.gold())
-    if msg: embed.add_field(name="📨 Najwięcej wiadomości", value=f"{user_display(msg['user_id'])} – {msg['messages']}", inline=False)
-    if ment: embed.add_field(name="🔔 Najwięcej wspomnień", value=f"{user_display(ment['user_id'])} – {ment['mentions']}", inline=False)
-    if hearts: embed.add_field(name="❤️ Najwięcej ❤️", value=f"{user_display(hearts['user_id'])} – {hearts['hearts_received']}", inline=False)
-    if flags: embed.add_field(name="🇺🇦 Największy ukrainiec 🇺🇦", value=f"{user_display(flags['user_id'])} – {flags['flags_received']}", inline=False)
-    if voice:
-        seconds = voice["voice_seconds"]
-        hours, remainder = divmod(seconds, 3600)
-        minutes = remainder // 60
-        embed.add_field(name="🎙️ Najwięcej czasu na VC", value=f"{user_display(voice['user_id'])} – {hours}h {minutes}m", inline=False)
-
-    # Ustaw ID kanału docelowego
-    channel = bot.get_channel(1216013668773265458)
-    if channel:
-        await channel.send(embed=embed)
-
-
-
-
 # ---------- KOMENDY DLA BEKI ---------- #
 
 @bot.command(name="ksante")
