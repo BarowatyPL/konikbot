@@ -305,12 +305,13 @@ async def send_hall_of_fame_embed():
 async def send_hof_embed():
     async with db_pool.acquire() as conn:
         async def top(stat):
-            return await conn.fetchrow(f"""
+            row = await conn.fetchrow(f"""
                 SELECT user_id, {stat}
                 FROM stats
                 ORDER BY {stat} DESC
                 LIMIT 1
             """)
+            return row
 
         msg = await top("messages")
         ment = await top("mentions")
@@ -326,41 +327,43 @@ async def send_hof_embed():
 
     embed.add_field(
         name="📨 Najwięcej wiadomości",
-        value=f"{user_display(msg['user_id'])} – {msg['messages']}" if msg and msg["messages"] > 0 else "Brak danych",
+        value=f"{user_display(msg['user_id'])} – {msg['messages']}" if msg and msg["messages"] > 0 else "*Brak danych*",
         inline=False
     )
     embed.add_field(
         name="🔔 Najwięcej wspomnień",
-        value=f"{user_display(ment['user_id'])} – {ment['mentions']}" if ment and ment["mentions"] > 0 else "Brak danych",
+        value=f"{user_display(ment['user_id'])} – {ment['mentions']}" if ment and ment["mentions"] > 0 else "*Brak danych*",
         inline=False
     )
     embed.add_field(
         name="❤️ Najwięcej ❤️",
-        value=f"{user_display(hearts['user_id'])} – {hearts['hearts_received']}" if hearts and hearts["hearts_received"] > 0 else "Brak danych",
+        value=f"{user_display(hearts['user_id'])} – {hearts['hearts_received']}" if hearts and hearts["hearts_received"] > 0 else "*Brak danych*",
         inline=False
     )
     embed.add_field(
         name="🇺🇦 Największy ukrainiec 🇺🇦",
-        value=f"{user_display(flags['user_id'])} – {flags['flags_received']}" if flags and flags["flags_received"] > 0 else "Brak danych",
+        value=f"{user_display(flags['user_id'])} – {flags['flags_received']}" if flags and flags["flags_received"] > 0 else "*Brak danych*",
         inline=False
     )
+
     if voice and voice["voice_seconds"] > 0:
         seconds = voice["voice_seconds"]
         hours, remainder = divmod(seconds, 3600)
         minutes = remainder // 60
-        vc_value = f"{user_display(voice['user_id'])} – {hours}h {minutes}m"
+        voice_value = f"{user_display(voice['user_id'])} – {hours}h {minutes}m"
     else:
-        vc_value = "Brak danych"
+        voice_value = "*Brak danych*"
 
     embed.add_field(
         name="🎙️ Najwięcej czasu na VC",
-        value=vc_value,
+        value=voice_value,
         inline=False
     )
 
     channel = bot.get_channel(1216013668773265458)
     if channel:
         await channel.send(embed=embed)
+
 
 
 
