@@ -172,7 +172,7 @@ async def on_message(message):
 @bot.event
 async def on_voice_state_update(member, before, after):
     user_id = member.id
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     async with db_pool.acquire() as conn:
         if before.channel is None and after.channel is not None:
@@ -204,7 +204,7 @@ async def on_voice_state_update(member, before, after):
 
 @tasks.loop(minutes=1)
 async def weekly_hof():
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if now.weekday() == 6 and now.hour == 16 and now.minute == 0:
         await send_hof_embed()
         async with db_pool.acquire() as conn:
@@ -286,7 +286,7 @@ async def update_rank(user_id: int, nickname: str, new_rank: str):
 
 @tasks.loop(minutes=1)
 async def weekly_hall_of_fame():
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if now.weekday() == 6 and now.hour == 16 and now.minute == 0:
         await send_hall_of_fame_embed()
 
@@ -770,7 +770,7 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Zapisz", style=discord.ButtonStyle.success)
     async def signup(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cooldown = 10  # sekundy
     
         if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
@@ -822,7 +822,7 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cooldown = 10  # sekundy
     
         if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
@@ -847,7 +847,7 @@ class SignupPanel(discord.ui.View):
     @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
     async def signup_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = interaction.user
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cooldown = 10
     
         if user.id in last_click_times and (now - last_click_times[user.id]).total_seconds() < cooldown:
