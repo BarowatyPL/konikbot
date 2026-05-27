@@ -621,6 +621,38 @@ async def nicki(ctx, member: discord.Member = None):
             delete_after=20
         )
 
+class DodajNickModal(discord.ui.Modal, title="Dodaj nick LoL"):
+    nicknames = discord.ui.TextInput(
+        label="Nick(i)",
+        placeholder="Nick#EUW, Smurf#EUNE",
+        required=True,
+        max_length=300
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        nicknames = [
+            n.strip()
+            for n in str(self.nicknames.value).split(",")
+            if n.strip()
+        ]
+
+        if not nicknames:
+            return await interaction.response.send_message(
+                "❌ Nie podano żadnych nicków.",
+                ephemeral=True
+            )
+
+        await add_nicknames(interaction.user.id, nicknames)
+
+        await log_to_discord(
+            f"➕ {interaction.user.mention} dodał swoje nicki: `{', '.join(nicknames)}`"
+        )
+
+        await interaction.response.send_message(
+            f"✅ Dodano nick(i): `{', '.join(nicknames)}`",
+            ephemeral=True
+        )
+
 
 class RankingPanelView(View):
     def __init__(self):
@@ -632,68 +664,8 @@ class RankingPanelView(View):
         custom_id="dodaj_nick_button"
     )
     async def dodaj_nick(self, interaction: Interaction, button: Button):
-
-        await log_to_discord(
-            f"🖱️ {interaction.user.mention} kliknął `➕ Dodaj nick`"
-        )
-
-        await interaction.response.send_message(
-            "📥 Napisz teraz swój nick z LoL-a.\n"
-            "Możesz podać kilka oddzielonych przecinkami.\n"
-            "Przykład: `Nick#EUW, Smurf#EUNE`",
-            ephemeral=True
-        )
-
-        def check(msg):
-            return (
-                msg.author.id == interaction.user.id
-                and msg.channel.id == interaction.channel.id
-                and not msg.author.bot
-            )
-
-        try:
-            msg = await bot.wait_for(
-                "message",
-                timeout=60,
-                check=check
-            )
-
-            nicknames = [
-                n.strip()
-                for n in msg.content.split(",")
-                if n.strip()
-            ]
-
-            try:
-                await msg.delete()
-            except Exception:
-                pass
-
-            if not nicknames:
-                return await interaction.followup.send(
-                    "❌ Nie podano żadnych nicków.",
-                    ephemeral=True
-                )
-
-            await add_nicknames(
-                interaction.user.id,
-                nicknames
-            )
-
-            await log_to_discord(
-                f"➕ {interaction.user.mention} dodał nicki: `{', '.join(nicknames)}`"
-            )
-
-            await interaction.followup.send(
-                f"✅ Dodano nick(i): `{', '.join(nicknames)}`",
-                ephemeral=True
-            )
-
-        except asyncio.TimeoutError:
-            await interaction.followup.send(
-                "⏳ Czas minął.",
-                ephemeral=True
-            )
+        await log_to_discord(f"🖱️ {interaction.user.mention} kliknął `➕ Dodaj nick`")
+        await interaction.response.send_modal(DodajNickModal())
 
     @discord.ui.button(
         label="✏️ Zmień nick",
@@ -701,23 +673,20 @@ class RankingPanelView(View):
         custom_id="zmien_nick_button"
     )
     async def zmien_nick(self, interaction: Interaction, button: Button):
+        await log_to_discord(f"🖱️ {interaction.user.mention} kliknął `✏️ Zmień nick`")
 
         nicki = await get_nicknames(interaction.user.id)
+        nicknames_only = [n for n, _ in nicki]
 
-        if not nicki:
+        if not nicknames_only:
             return await interaction.response.send_message(
-                "❌ Nie masz żadnych nicków.",
+                "❌ Nie masz żadnych nicków do zmiany.",
                 ephemeral=True
             )
 
-        view = ZmienNickDropdownView(
-            interaction.user,
-            [n for n, _ in nicki]
-        )
-
         await interaction.response.send_message(
-            "✏️ Wybierz nick do zmiany:",
-            view=view,
+            "✏️ Wybierz nick, który chcesz zmienić:",
+            view=ZmienNickDropdownView(interaction.user, nicknames_only),
             ephemeral=True
         )
 
@@ -727,23 +696,20 @@ class RankingPanelView(View):
         custom_id="usun_nick_button"
     )
     async def usun_nick(self, interaction: Interaction, button: Button):
+        await log_to_discord(f"🖱️ {interaction.user.mention} kliknął `🗑️ Usuń nick`")
 
         nicki = await get_nicknames(interaction.user.id)
+        nicknames_only = [n for n, _ in nicki]
 
-        if not nicki:
+        if not nicknames_only:
             return await interaction.response.send_message(
-                "❌ Nie masz żadnych nicków.",
+                "❌ Nie masz żadnych nicków do usunięcia.",
                 ephemeral=True
             )
 
-        view = UsunNickDropdownView(
-            interaction.user,
-            [n for n, _ in nicki]
-        )
-
         await interaction.response.send_message(
-            "🗑️ Wybierz nick do usunięcia:",
-            view=view,
+            "🗑️ Wybierz nick, który chcesz usunąć:",
+            view=UsunNickDropdownView(interaction.user, nicknames_only),
             ephemeral=True
         )
 
@@ -753,27 +719,22 @@ class RankingPanelView(View):
         custom_id="ustaw_range_button"
     )
     async def ustaw_range(self, interaction: Interaction, button: Button):
+        await log_to_discord(f"🖱️ {interaction.user.mention} kliknął `🏅 Ustaw rangę`")
 
         nicki = await get_nicknames(interaction.user.id)
         nicknames_only = [n for n, _ in nicki]
 
         if not nicknames_only:
             return await interaction.response.send_message(
-                "❌ Nie masz żadnych nicków.",
+                "❌ Nie masz żadnych nicków. Najpierw dodaj nick.",
                 ephemeral=True
             )
 
-        view = UstawRangaDropdownView(
-            interaction.user,
-            nicknames_only
-        )
-
         await interaction.response.send_message(
             "🏅 Wybierz nick i rangę:",
-            view=view,
+            view=UstawRangaDropdownView(interaction.user, nicknames_only),
             ephemeral=True
         )
-
 
 # ---------- PANEL GŁÓWNY ---------- #
 
