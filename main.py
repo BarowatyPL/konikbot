@@ -68,6 +68,13 @@ db_pool = None
 last_click_times = {}  # user_id: datetime
 rep_cooldown = {}
 
+BOT_ADMIN_ROLE = "KonikAdmin"
+
+def is_bot_admin():
+    async def predicate(ctx):
+        return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
+    return commands.check(predicate)
+
 
 RANGA_EMOJI = {
     "Iron": "⬛",
@@ -882,7 +889,7 @@ class SignupPanel(discord.ui.View):
     
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
     async def set_time(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             await interaction.response.send_message("Tylko administrator może ustawić czas wydarzenia.", ephemeral=True, delete_after=10)
             return
         await interaction.response.send_message("Podaj godzinę wydarzenia w formacie `HH:MM`:", ephemeral=True, delete_after=10)
@@ -907,7 +914,7 @@ class SignupPanel(discord.ui.View):
     
     @discord.ui.button(label="🗑️ Usuń gracza", style=discord.ButtonStyle.danger, row=1)
     async def remove_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
     
         await interaction.response.send_message("Podaj @użytkownika do usunięcia:", ephemeral=True)
@@ -946,7 +953,7 @@ class SignupPanel(discord.ui.View):
 
     @discord.ui.button(label="➕ Dodaj gracza", style=discord.ButtonStyle.success, row=1)
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
     
         await interaction.response.send_message("Podaj @użytkownika do dodania na listę główną:", ephemeral=True)
@@ -991,7 +998,7 @@ class SignupPanel(discord.ui.View):
 
     @discord.ui.button(label="📤 Przenieś z rezerwy", style=discord.ButtonStyle.success, row=1)
     async def move_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
         
         if len(signups) >= MAX_SIGNUPS:
@@ -1029,7 +1036,7 @@ class SignupPanel(discord.ui.View):
     
     @discord.ui.button(label="🪃 Wyczyść listy", style=discord.ButtonStyle.danger, row=2)
     async def clear_lists(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
     
         signups.clear()
@@ -1045,7 +1052,7 @@ class SignupPanel(discord.ui.View):
     
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
     async def ping_main(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
         if not signups:
             return
@@ -1057,7 +1064,7 @@ class SignupPanel(discord.ui.View):
 
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
         if not waiting_list:
             await interaction.response.send_message("❗ Lista rezerwowa jest pusta.", ephemeral=True)
@@ -1075,7 +1082,7 @@ class SignupPanel(discord.ui.View):
     
     @discord.ui.button(label="🎮 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
     async def toggle_ranking(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
     
         global ranking_mode
@@ -1086,7 +1093,7 @@ class SignupPanel(discord.ui.View):
 
     @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=3)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
+        if not has_panel_access(interaction.user):
             return
     
         global signups_locked
@@ -1095,6 +1102,33 @@ class SignupPanel(discord.ui.View):
         button.label = "✅ Wznów zapisy" if signups_locked else "🔒 Zatrzymaj zapisy"
         await self.update_message(interaction)
         await log_to_discord(f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
+
+    @discord.ui.button(label="🎲 Losuj", style=discord.ButtonStyle.success, row=3)
+    async def random_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
+    
+        if not has_panel_access(interaction.user):
+            return
+    
+        if len(signups) < 10:
+            await interaction.response.send_message(
+                "❗ Potrzeba minimum 10 graczy.",
+                ephemeral=True
+            )
+            return
+    
+        players = signups.copy()
+        random.shuffle(players)
+    
+        team1 = players[:5]
+        team2 = players[5:10]
+    
+        msg = "**🔵 Drużyna 1:**\n"
+        msg += "\n".join(f"• {p.mention}" for p in team1)
+    
+        msg += "\n\n**🔴 Drużyna 2:**\n"
+        msg += "\n".join(f"• {p.mention}" for p in team2)
+    
+        await interaction.response.send_message(msg)
 
 
     async def update_message(self, interaction: discord.Interaction, log_click: bool = False):
@@ -1199,7 +1233,10 @@ class SignupPanel(discord.ui.View):
 
 
 @bot.command()
-@commands.has_permissions(administrator=True)
+@commands.check_any(
+    commands.has_permissions(administrator=True),
+    is_bot_admin()
+)
 async def panel(ctx):
     global panel_channel, panel_message
     panel_channel = ctx.channel
