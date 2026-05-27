@@ -80,7 +80,12 @@ def has_panel_access(user):
         user.guild_permissions.administrator
         or any(role.name == BOT_ADMIN_ROLE for role in user.roles)
     )
-
+    
+class FakeUser:
+    def __init__(self, name):
+        self.display_name = name
+        self.mention = name
+        self.id = hash(name)
 
 
 RANGA_EMOJI = {
@@ -1812,6 +1817,19 @@ async def usunbana(ctx, member: discord.Member):
 
     await log_to_discord(f"✅ {ctx.author.mention} usunął ostrzeżenia dla {member.mention}")
     await odswiez_panel()
+
+# ---------- TEST ---------- #
+
+
+@bot.command()
+async def testplayer(ctx):
+
+    signups.clear()
+
+    for i in range(1, 11):
+        signups.append(FakeUser(f"TestGracz{i}"))
+
+    await ctx.send("✅ Dodano 10 testowych graczy.")
 
 
 
