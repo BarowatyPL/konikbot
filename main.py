@@ -75,6 +75,13 @@ def is_bot_admin():
         return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
     return commands.check(predicate)
 
+def has_panel_access(user):
+    return (
+        user.guild_permissions.administrator
+        or any(role.name == BOT_ADMIN_ROLE for role in user.roles)
+    )
+
+
 
 RANGA_EMOJI = {
     "Iron": "⬛",
