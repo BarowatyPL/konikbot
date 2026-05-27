@@ -749,14 +749,13 @@ class SignupPanel(View):
                 )
             elif len(signups) < MAX_SIGNUPS:
                 signups.append(user)
-                await log_to_discord(f"👤 {user.mention} zapisał się na listę główną.")
+                await log_to_discord(f"✅ {interaction.user.mention} zapisał się na listę główną.")
             else:
                 waiting_list.append(user)
-                await log_to_discord(
-                    f"👤 {user.mention} zapisał się na listę rezerwową, bo główna jest pełna."
-                )
+                await log_to_discord(f"✅ {interaction.user.mention} zapisał się na listę rezerwową (główna pełna).")
 
             await self.update_message(interaction)
+            
 
     @discord.ui.button(label="Wypisz", style=discord.ButtonStyle.danger)
     async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -784,8 +783,9 @@ class SignupPanel(View):
                 ephemeral=True
             )
 
-        await log_to_discord(f"👤 {user.mention} wypisał się z listy.")
+        await log_to_discord(f"❌ {interaction.user.mention} wypisał się z listy.")
         await self.update_message(interaction)
+
 
     @discord.ui.button(label="Zapisz na rezerwę", style=discord.ButtonStyle.secondary, row=1)
     async def signup_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -820,10 +820,7 @@ class SignupPanel(View):
                     return
 
             waiting_list.append(user)
-            await log_to_discord(
-                f"👤 {user.mention} zapisał się bezpośrednio na listę rezerwową."
-            )
-
+            await log_to_discord(f"✅ {interaction.user.mention} zapisał się bezpośrednio na listę rezerwową.")
             await self.update_message(interaction)
 
     @discord.ui.button(label="Ustaw czas", style=discord.ButtonStyle.primary)
@@ -858,9 +855,7 @@ class SignupPanel(View):
 
             await safe_delete_message(msg)
             await self.update_message(interaction)
-            await log_to_discord(
-                f"👤 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}."
-            )
+            await log_to_discord(f"🕒 {interaction.user.mention} ustawił czas wydarzenia na {event_time.strftime('%H:%M')}.")
 
         except asyncio.TimeoutError:
             await interaction.followup.send("Czas na odpowiedź minął.", ephemeral=True)
@@ -904,9 +899,7 @@ class SignupPanel(View):
             await safe_delete_message(msg)
 
             if removed_from:
-                await log_to_discord(
-                    f"👤 {interaction.user.mention} usunął {user.mention} z listy {removed_from}."
-                )
+                await log_to_discord(f"🗑️ {interaction.user.mention} usunął {user.mention} z listy {removed_from}.")
                 await self.update_message(interaction)
             else:
                 await interaction.followup.send(
@@ -958,9 +951,7 @@ class SignupPanel(View):
 
             if len(signups) < MAX_SIGNUPS:
                 signups.append(user)
-                await log_to_discord(
-                    f"👤 {interaction.user.mention} dodał {user.mention} do listy głównej."
-                )
+                await log_to_discord(f"➕ {interaction.user.mention} dodał {user.mention} do listy głównej.")
                 await self.update_message(interaction)
             else:
                 await interaction.followup.send(
@@ -1004,9 +995,8 @@ class SignupPanel(View):
                 waiting_list[:] = [u for u in waiting_list if u.id != user.id]
                 signups.append(user)
 
-                await log_to_discord(
-                    f"👤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej."
-                )
+                await log_to_discord(f"📤 {interaction.user.mention} przeniósł {user.mention} z rezerwy do listy głównej.")
+
                 await self.update_message(interaction)
             else:
                 await interaction.followup.send(
@@ -1030,9 +1020,8 @@ class SignupPanel(View):
         reminder_sent = False
 
         await self.update_message(interaction, log_click=True)
-        await log_to_discord(
-            f"👤 {interaction.user.mention} wyczyścił listy i usunął godzinę wydarzenia."
-        )
+        
+        await log_to_discord(f"🪃 {interaction.user.mention} wyczyścił listy.")
 
     @discord.ui.button(label="📢 Ping lista główna", style=discord.ButtonStyle.primary, row=2)
     async def ping_main(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1051,9 +1040,7 @@ class SignupPanel(View):
             f"📢 Lista główna została pingnięta przez {interaction.user.mention}:\n{mentions}"
         )
 
-        await log_to_discord(
-            f"👤 {interaction.user.mention} pingnął listę główną."
-        )
+        await log_to_discord(f"📢 {interaction.user.mention} pingnął listę główną.")
 
     @discord.ui.button(label="📢 Ping rezerwa", style=discord.ButtonStyle.secondary, row=2)
     async def ping_reserve(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1085,9 +1072,7 @@ class SignupPanel(View):
             ephemeral=True
         )
 
-        await log_to_discord(
-            f"👤 {interaction.user.mention} pingnął listę rezerwową w <#{RESERVE_PING_CHANNEL_ID}>."
-        )
+        await log_to_discord(f"📢 {interaction.user.mention} pingnął listę listę rezerwową w <#{RESERVE_PING_CHANNEL_ID}>.")
 
     @discord.ui.button(label="🎮 Zmień tryb", style=discord.ButtonStyle.primary, row=2)
     async def toggle_ranking(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1099,9 +1084,7 @@ class SignupPanel(View):
 
         await self.update_message(interaction, log_click=True)
 
-        await log_to_discord(
-            f"👤 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}."
-        )
+        await log_to_discord(f"🎮 {interaction.user.mention} zmienił tryb gry na {'🏆 Rankingowa' if ranking_mode else '🎮 Nierankingowa'}.")
 
     @discord.ui.button(label="🔒 Zatrzymaj zapisy", style=discord.ButtonStyle.primary, row=3)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1115,9 +1098,7 @@ class SignupPanel(View):
 
         await self.update_message(interaction)
 
-        await log_to_discord(
-            f"👤 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną."
-        )
+        await log_to_discord(f"🔒 {interaction.user.mention} {'zatrzymał' if signups_locked else 'wznowił'} zapisy na listę główną.")
 
     @discord.ui.button(label="🎲 Losuj", style=discord.ButtonStyle.success, row=3)
     async def random_teams(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1144,9 +1125,7 @@ class SignupPanel(View):
 
         await interaction.response.send_message(msg)
 
-        await log_to_discord(
-            f"🎲 {interaction.user.mention} wylosował drużyny z listy głównej."
-        )
+        await log_to_discord(f"🎲 {interaction.user.mention} wylosował drużyny z listy głównej.")
 
 
 # ---------- PANEL TEMATYCZNY ---------- #
