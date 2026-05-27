@@ -1,4 +1,4 @@
-# 🤖 KonikBOT v6.0
+# 🤖 KonikBOT v6.2
 # Na potrzeby serwera Konikolandia
 # Właścicielem jest BarowatyPL
 
@@ -634,12 +634,12 @@ class RankingPanelView(View):
     async def dodaj_nick(self, interaction: Interaction, button: Button):
 
         await log_to_discord(
-            f"🖱️ {interaction.user.mention} kliknął przycisk `➕ Dodaj nick`"
+            f"🖱️ {interaction.user.mention} kliknął `➕ Dodaj nick`"
         )
 
         await interaction.response.send_message(
-            "📥 Napisz teraz na tym kanale swój nick z LoL-a.\n"
-            "Możesz dodać kilka, oddzielając przecinkami.\n"
+            "📥 Napisz teraz swój nick z LoL-a.\n"
+            "Możesz podać kilka oddzielonych przecinkami.\n"
             "Przykład: `Nick#EUW, Smurf#EUNE`",
             ephemeral=True
         )
@@ -654,7 +654,7 @@ class RankingPanelView(View):
         try:
             msg = await bot.wait_for(
                 "message",
-                timeout=60.0,
+                timeout=60,
                 check=check
             )
 
@@ -670,11 +670,6 @@ class RankingPanelView(View):
                 pass
 
             if not nicknames:
-
-                await log_to_discord(
-                    f"❌ {interaction.user.mention} próbował dodać nick, ale nic nie podał."
-                )
-
                 return await interaction.followup.send(
                     "❌ Nie podano żadnych nicków.",
                     ephemeral=True
@@ -686,7 +681,7 @@ class RankingPanelView(View):
             )
 
             await log_to_discord(
-                f"➕ {interaction.user.mention} dodał swoje nicki: `{', '.join(nicknames)}`"
+                f"➕ {interaction.user.mention} dodał nicki: `{', '.join(nicknames)}`"
             )
 
             await interaction.followup.send(
@@ -695,251 +690,87 @@ class RankingPanelView(View):
             )
 
         except asyncio.TimeoutError:
-
-            await log_to_discord(
-                f"⏳ {interaction.user.mention} nie podał nicku w czasie."
-            )
-
             await interaction.followup.send(
-                "⏳ Czas minął. Kliknij `Dodaj nick` jeszcze raz.",
+                "⏳ Czas minął.",
                 ephemeral=True
             )
 
+    @discord.ui.button(
+        label="✏️ Zmień nick",
+        style=ButtonStyle.primary,
+        custom_id="zmien_nick_button"
+    )
+    async def zmien_nick(self, interaction: Interaction, button: Button):
 
-class UstawRangaDropdownView(View):
-    def __init__(self, user, nicki):
-        super().__init__(timeout=60)
-        self.user = user
-        self.selected_nick = None
+        nicki = await get_nicknames(interaction.user.id)
 
-        self.nick_select = Select(
-            placeholder="🔹 Wybierz swój nick",
-            options=[SelectOption(label=n) for n in nicki],
-            custom_id="nick_select_ranga"
-        )
-        self.nick_select.callback = self.select_nick
-        self.add_item(self.nick_select)
-
-        self.rank_select = Select(
-            placeholder="🏅 Wybierz rangę",
-            options=[SelectOption(label=r) for r in RANGI],
-            custom_id="rank_select"
-        )
-        self.rank_select.callback = self.select_rank
-        self.add_item(self.rank_select)
-
-    async def select_nick(self, interaction: Interaction):
-        await log_to_discord(
-            f"🖱️ {interaction.user.mention} wybrał nick do ustawienia rangi."
-        )
-
-        if interaction.user.id != self.user.id:
-            await log_to_discord(
-                f"⛔ {interaction.user.mention} próbował użyć cudzego panelu ustawiania rangi."
-            )
-
+        if not nicki:
             return await interaction.response.send_message(
-                "⛔ To nie Twój panel.",
+                "❌ Nie masz żadnych nicków.",
                 ephemeral=True
             )
 
-        self.selected_nick = self.nick_select.values[0]
-
-        await log_to_discord(
-            f"🔹 {interaction.user.mention} wybrał nick `{self.selected_nick}` do ustawienia rangi."
+        view = ZmienNickDropdownView(
+            interaction.user,
+            [n for n, _ in nicki]
         )
 
         await interaction.response.send_message(
-            f"✅ Wybrano nick: `{self.selected_nick}`",
+            "✏️ Wybierz nick do zmiany:",
+            view=view,
             ephemeral=True
         )
 
-    async def select_rank(self, interaction: Interaction):
-        await log_to_discord(
-            f"🖱️ {interaction.user.mention} wybrał rangę w panelu."
-        )
+    @discord.ui.button(
+        label="🗑️ Usuń nick",
+        style=ButtonStyle.danger,
+        custom_id="usun_nick_button"
+    )
+    async def usun_nick(self, interaction: Interaction, button: Button):
 
-        if interaction.user.id != self.user.id:
-            await log_to_discord(
-                f"⛔ {interaction.user.mention} próbował użyć cudzego panelu ustawiania rangi."
-            )
+        nicki = await get_nicknames(interaction.user.id)
 
+        if not nicki:
             return await interaction.response.send_message(
-                "⛔ To nie Twój panel.",
+                "❌ Nie masz żadnych nicków.",
                 ephemeral=True
             )
 
-        if not self.selected_nick:
-            return await interaction.response.send_message(
-                "⚠️ Najpierw wybierz nick!",
-                ephemeral=True
-            )
-
-        selected_rank = self.rank_select.values[0]
-
-        await update_rank(interaction.user.id, self.selected_nick, selected_rank)
-
-        await log_to_discord(
-            f"🏅 {interaction.user.mention} ustawił rangę **{selected_rank}** dla nicku `{self.selected_nick}`."
+        view = UsunNickDropdownView(
+            interaction.user,
+            [n for n, _ in nicki]
         )
 
         await interaction.response.send_message(
-            f"🏅 Ustawiono rangę **{selected_rank}** dla `{self.selected_nick}`",
+            "🗑️ Wybierz nick do usunięcia:",
+            view=view,
             ephemeral=True
         )
 
+    @discord.ui.button(
+        label="🏅 Ustaw rangę",
+        style=ButtonStyle.secondary,
+        custom_id="ustaw_range_button"
+    )
+    async def ustaw_range(self, interaction: Interaction, button: Button):
 
-class ZmienNickDropdownView(View):
-    def __init__(self, user, nicki):
-        super().__init__(timeout=60)
-        self.user = user
+        nicki = await get_nicknames(interaction.user.id)
+        nicknames_only = [n for n, _ in nicki]
 
-        self.nick_select = Select(
-            placeholder="✏️ Wybierz nick do zmiany",
-            options=[SelectOption(label=n) for n in nicki],
-            custom_id="nick_select_zmiana"
-        )
-        self.nick_select.callback = self.select_nick
-        self.add_item(self.nick_select)
-
-    async def select_nick(self, interaction: Interaction):
-        await log_to_discord(
-            f"🖱️ {interaction.user.mention} wybrał nick do zmiany."
-        )
-
-        if interaction.user.id != self.user.id:
-            await log_to_discord(
-                f"⛔ {interaction.user.mention} próbował użyć cudzego panelu zmiany nicku."
-            )
-
+        if not nicknames_only:
             return await interaction.response.send_message(
-                "⛔ To nie Twój panel.",
+                "❌ Nie masz żadnych nicków.",
                 ephemeral=True
             )
 
-        old_nick = self.nick_select.values[0]
-
-        await interaction.response.send_message(
-            f"✏️ Wybrano nick `{old_nick}`.\nPodaj nowy nick:",
-            ephemeral=True
-        )
-
-        def check(msg):
-            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
-
-        try:
-            msg = await bot.wait_for("message", timeout=60, check=check)
-            new_nick = msg.content.strip()
-            await safe_delete_message(msg)
-
-            if not new_nick:
-                await log_to_discord(
-                    f"❌ {interaction.user.mention} próbował zmienić nick `{old_nick}`, ale podał pustą wartość."
-                )
-
-                return await interaction.followup.send(
-                    "❌ Nie podano nowego nicku.",
-                    ephemeral=True
-                )
-
-            async with db_pool.acquire() as conn:
-                result = await conn.execute(
-                    """
-                    UPDATE lol_nicknames
-                    SET nickname = $1
-                    WHERE user_id = $2 AND nickname = $3
-                    """,
-                    new_nick,
-                    interaction.user.id,
-                    old_nick
-                )
-
-            if result.endswith("0"):
-                await log_to_discord(
-                    f"❌ {interaction.user.mention} próbował zmienić nick `{old_nick}`, ale nick nie został znaleziony."
-                )
-
-                return await interaction.followup.send(
-                    "❌ Nie znaleziono tego nicku.",
-                    ephemeral=True
-                )
-
-            await log_to_discord(
-                f"✏️ {interaction.user.mention} zmienił swój nick z `{old_nick}` na `{new_nick}`."
-            )
-
-            await interaction.followup.send(
-                f"✅ Zmieniono nick z `{old_nick}` na `{new_nick}`.",
-                ephemeral=True
-            )
-
-        except asyncio.TimeoutError:
-            await log_to_discord(
-                f"⏳ {interaction.user.mention} nie podał nowego nicku w czasie."
-            )
-
-            await interaction.followup.send(
-                "⏳ Czas minął. Spróbuj ponownie.",
-                ephemeral=True
-            )
-
-
-class UsunNickDropdownView(View):
-    def __init__(self, user, nicki):
-        super().__init__(timeout=60)
-        self.user = user
-
-        self.nick_select = Select(
-            placeholder="🗑️ Wybierz nick do usunięcia",
-            options=[SelectOption(label=n) for n in nicki],
-            custom_id="nick_select_usun"
-        )
-        self.nick_select.callback = self.select_nick
-        self.add_item(self.nick_select)
-
-    async def select_nick(self, interaction: Interaction):
-        await log_to_discord(
-            f"🖱️ {interaction.user.mention} wybrał nick do usunięcia."
-        )
-
-        if interaction.user.id != self.user.id:
-            await log_to_discord(
-                f"⛔ {interaction.user.mention} próbował użyć cudzego panelu usuwania nicku."
-            )
-
-            return await interaction.response.send_message(
-                "⛔ To nie Twój panel.",
-                ephemeral=True
-            )
-
-        nickname = self.nick_select.values[0]
-
-        async with db_pool.acquire() as conn:
-            result = await conn.execute(
-                """
-                DELETE FROM lol_nicknames
-                WHERE user_id = $1 AND nickname = $2
-                """,
-                interaction.user.id,
-                nickname
-            )
-
-        if result.endswith("0"):
-            await log_to_discord(
-                f"❌ {interaction.user.mention} próbował usunąć nick `{nickname}`, ale nick nie został znaleziony."
-            )
-
-            return await interaction.response.send_message(
-                "❌ Nie znaleziono tego nicku.",
-                ephemeral=True
-            )
-
-        await log_to_discord(
-            f"🗑️ {interaction.user.mention} usunął swój nick `{nickname}`."
+        view = UstawRangaDropdownView(
+            interaction.user,
+            nicknames_only
         )
 
         await interaction.response.send_message(
-            f"🗑️ Usunięto nick `{nickname}`.",
+            "🏅 Wybierz nick i rangę:",
+            view=view,
             ephemeral=True
         )
 
