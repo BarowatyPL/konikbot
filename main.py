@@ -627,59 +627,69 @@ class RankingPanelView(View):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="➕ Dodaj nick",
-        style=ButtonStyle.success,
-        custom_id="dodaj_nick_button"
+    label="➕ Dodaj nick",
+    style=ButtonStyle.success,
+    custom_id="dodaj_nick_button"
+)
+async def dodaj_nick(self, interaction: Interaction, button: Button):
+    await log_to_discord(
+        f"🖱️ {interaction.user.mention} kliknął przycisk `➕ Dodaj nick`"
     )
-    async def dodaj_nick(self, interaction: Interaction, button: Button):
-        await log_to_discord(
-            f"🖱️ {interaction.user.mention} kliknął przycisk `➕ Dodaj nick`"
+
+    await interaction.response.send_message(
+        "📥 Napisz teraz na tym kanale swój nick z LoL-a.\n"
+        "Możesz dodać kilka, oddzielając przecinkami.\n"
+        "Przykład: `Nick#EUW, Smurf#EUNE`",
+        ephemeral=True
+    )
+
+    def check(msg):
+        return (
+            msg.author.id == interaction.user.id
+            and msg.channel.id == interaction.channel.id
+            and not msg.author.bot
         )
 
-        await interaction.response.send_message(
-            "📥 Podaj nick(i) z LoL-a. Możesz dodać wiele, oddzielając przecinkami.\n"
-            "Przykład: `Nick#EUW, Smurf#EUNE`",
+    try:
+        msg = await bot.wait_for("message", timeout=60.0, check=check)
+
+        nicknames = [n.strip() for n in msg.content.split(",") if n.strip()]
+
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+
+        if not nicknames:
+            await log_to_discord(
+                f"❌ {interaction.user.mention} próbował dodać nick, ale nic nie podał."
+            )
+
+            return await interaction.followup.send(
+                "❌ Nie podano żadnych nicków.",
+                ephemeral=True
+            )
+
+        await add_nicknames(interaction.user.id, nicknames)
+
+        await log_to_discord(
+            f"➕ {interaction.user.mention} dodał swoje nicki: `{', '.join(nicknames)}`"
+        )
+
+        await interaction.followup.send(
+            f"✅ Dodano nick(i): `{', '.join(nicknames)}`",
             ephemeral=True
         )
 
-        def check(msg):
-            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
+    except asyncio.TimeoutError:
+        await log_to_discord(
+            f"⏳ {interaction.user.mention} nie podał nicku w czasie."
+        )
 
-        try:
-            msg = await bot.wait_for("message", timeout=60, check=check)
-            nicknames = [n.strip() for n in msg.content.split(",") if n.strip()]
-            await safe_delete_message(msg)
-
-            if not nicknames:
-                await log_to_discord(
-                    f"❌ {interaction.user.mention} próbował dodać nick, ale nic nie podał."
-                )
-
-                return await interaction.followup.send(
-                    "❌ Nie podano żadnych nicków.",
-                    ephemeral=True
-                )
-
-            await add_nicknames(interaction.user.id, nicknames)
-
-            await log_to_discord(
-                f"➕ {interaction.user.mention} dodał swoje nicki: `{', '.join(nicknames)}`"
-            )
-
-            await interaction.followup.send(
-                f"✅ Dodano {len(nicknames)} nick(ów): {', '.join(nicknames)}",
-                ephemeral=True
-            )
-
-        except asyncio.TimeoutError:
-            await log_to_discord(
-                f"⏳ {interaction.user.mention} nie podał nicku w czasie."
-            )
-
-            await interaction.followup.send(
-                "⏳ Czas minął. Spróbuj ponownie.",
-                ephemeral=True
-            )
+        await interaction.followup.send(
+            "⏳ Czas minął. Kliknij `Dodaj nick` jeszcze raz.",
+            ephemeral=True
+        )
 
     @discord.ui.button(
         label="✏️ Zmień nick",
